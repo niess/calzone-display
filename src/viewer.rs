@@ -14,12 +14,11 @@ impl Plugin for ViewerPlugin {
             .add_systems(Startup, (
                 setup_physics,
                 spawn_geometry,
-                spawn_lights,
                 spawn_viewer,
             ))
             .add_systems(Update, (
-                rotate_viewer,
-                update_viewer,
+                on_mouse,
+                on_keybord,
             ));
     }
 }
@@ -41,20 +40,6 @@ fn spawn_geometry(
         material: materials.add(Color::WHITE),
         ..default()
     });
-}
-
-fn spawn_lights(mut commands: Commands) {
-    commands.spawn(
-        PointLightBundle {
-            point_light: PointLight {
-                color: Color::from(tailwind::ROSE_300),
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(400.0, 400.0, 800.0),
-            ..default()
-        }
-    );
 }
 
 fn spawn_viewer(mut commands: Commands) {
@@ -81,10 +66,21 @@ fn spawn_viewer(mut commands: Commands) {
                     ..default()
                 }
             );
+            parent.spawn(
+                PointLightBundle {
+                    point_light: PointLight {
+                        color: Color::from(tailwind::ROSE_300),
+                        shadows_enabled: true,
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0.0, 100.0, 100.0),
+                    ..default()
+                }
+            );
         });
 }
 
-fn rotate_viewer(
+fn on_mouse(
     mut mouse_motion: EventReader<MouseMotion>,
     mut query: Query<(&mut Transform, &mut ExternalForce), With<Viewer>>,
 ) {
@@ -101,11 +97,11 @@ fn rotate_viewer(
     }
 }
 
-fn update_viewer(
+fn on_keybord(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut ExternalForce, &mut Transform), With<Viewer>>,
+    mut query: Query<(&mut Transform, &mut ExternalForce), With<Viewer>>,
 ) {
-    let (mut external_force, transform) = query.single_mut();
+    let (transform, mut external_force) = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::KeyW) {
         external_force.force = 50.0 * -transform.local_z();
     } else if keyboard_input.just_released(KeyCode::KeyW) {
