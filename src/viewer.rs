@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
+use bevy_rapier3d::prelude::*;
 use bevy_stl::StlPlugin;
 
 
@@ -11,20 +12,23 @@ impl Plugin for ViewerPlugin {
         app
             .add_plugins(StlPlugin)
             .add_systems(Startup, (
+                setup_physics,
                 spawn_geometry,
                 spawn_lights,
                 spawn_viewer,
             ))
             .add_systems(Update, (
-                translate_viewer,
                 rotate_viewer,
+                update_viewer,
             ));
     }
 }
 
 #[derive(Component)]
-struct Viewer {
-    speed: f32,
+struct Viewer;
+
+fn setup_physics(mut config: ResMut<RapierConfiguration>) {
+    config.gravity = Vect::ZERO;
 }
 
 fn spawn_geometry(
@@ -55,13 +59,18 @@ fn spawn_lights(mut commands: Commands) {
 
 fn spawn_viewer(mut commands: Commands) {
     commands
-        .spawn((
-            Viewer { speed: 100.0 },
-            SpatialBundle {
-                transform: Transform::from_xyz(0.0, 0.0, 400.0),
-                ..default()
-            },
-        ))
+        .spawn(Viewer)
+        .insert(SpatialBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 400.0),
+            ..default()
+        })
+        .insert(RigidBody::Dynamic)
+        .insert(AdditionalMassProperties::Mass(1.0))
+        .insert(ExternalForce::default())
+        .insert(Damping {
+            linear_damping: 1.0,
+            angular_damping: 0.0,
+        })
         .with_children(|parent| {
             parent.spawn(
                 Camera3dBundle {
@@ -77,24 +86,29 @@ fn spawn_viewer(mut commands: Commands) {
 
 fn rotate_viewer(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut query: Query<&mut Transform, With<Viewer>>,
+    mut query: Query<(&mut Transform, &mut ExternalForce), With<Viewer>>,
 ) {
-    let mut transform = query.single_mut();
+    let (mut transform, mut external_force) = query.single_mut();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
-        // The rrder of rotations is important.
-        // See: https://gamedev.stackexchange.com/a/136175/103059.
         transform.rotate_z(yaw);
         transform.rotate_local_x(pitch);
     }
+    let force = external_force.force.length();
+    if force != 0.0 {
+        external_force.force = force * -transform.local_z();
+    }
 }
 
-fn translate_viewer(
-    mut query: Query<(&mut Transform, &mut Viewer)>,
-    time: Res<Time>,
+fn update_viewer(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut ExternalForce, &mut Transform), With<Viewer>>,
 ) {
-    let (mut transform, viewer) = query.single_mut();
-    let direction = transform.local_z();
-    transform.translation -= direction * viewer.speed * time.delta_seconds();
+    let (mut external_force, transform) = query.single_mut();
+    if keyboard_input.just_pressed(KeyCode::KeyW) {
+        external_force.force = 50.0 * -transform.local_z();
+    } else if keyboard_input.just_released(KeyCode::KeyW) {
+        external_force.force = Vect::ZERO;
+    }
 }
