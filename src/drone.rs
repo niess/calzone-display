@@ -2,20 +2,14 @@ use bevy::prelude::*;
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::prelude::*;
-use bevy_stl::StlPlugin;
 
 
-pub struct ViewerPlugin;
+pub struct DronePlugin;
 
-impl Plugin for ViewerPlugin {
+impl Plugin for DronePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugins(StlPlugin)
-            .add_systems(Startup, (
-                setup_physics,
-                spawn_geometry,
-                spawn_viewer,
-            ))
+            .add_systems(Startup, spawn_viewer)
             .add_systems(Update, (
                 on_mouse,
                 on_keybord,
@@ -24,27 +18,11 @@ impl Plugin for ViewerPlugin {
 }
 
 #[derive(Component)]
-struct Viewer;
-
-fn setup_physics(mut config: ResMut<RapierConfiguration>) {
-    config.gravity = Vect::ZERO;
-}
-
-fn spawn_geometry(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>
-) {
-    commands.spawn(PbrBundle {
-        mesh: asset_server.load("foreground.stl"),
-        material: materials.add(Color::WHITE),
-        ..default()
-    });
-}
+struct Drone;
 
 fn spawn_viewer(mut commands: Commands) {
     commands
-        .spawn(Viewer)
+        .spawn(Drone)
         .insert(SpatialBundle {
             transform: Transform::from_xyz(0.0, 0.0, 400.0),
             ..default()
@@ -82,7 +60,7 @@ fn spawn_viewer(mut commands: Commands) {
 
 fn on_mouse(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut query: Query<(&mut Transform, &mut ExternalForce), With<Viewer>>,
+    mut query: Query<(&mut Transform, &mut ExternalForce), With<Drone>>,
 ) {
     let (mut transform, mut external_force) = query.single_mut();
     for motion in mouse_motion.read() {
@@ -99,7 +77,7 @@ fn on_mouse(
 
 fn on_keybord(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut ExternalForce), With<Viewer>>,
+    mut query: Query<(&mut Transform, &mut ExternalForce), With<Drone>>,
 ) {
     let (transform, mut external_force) = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::KeyW) {
