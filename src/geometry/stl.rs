@@ -39,18 +39,28 @@ impl AssetLoader for StlLoader {
 #[derive(Deserialize, Serialize)]
 pub struct StlLoaderSettings {
     compute_normal: bool,
+    interpolate_normal: bool,
 }
 
 impl Default for StlLoaderSettings {
     fn default() -> Self {
         Self {
             compute_normal: true,
+            interpolate_normal: false,
         }
     }
 }
 
 impl StlLoaderSettings {
     fn build(&self, mesh: stl_io::IndexedMesh) -> Mesh {
+        if self.interpolate_normal {
+            self.build_interpolate(mesh)
+        } else {
+            self.build_face_normal(mesh)
+        }
+    }
+
+    fn build_face_normal(&self, mesh: stl_io::IndexedMesh) -> Mesh {
         let stl_io::IndexedMesh { vertices: stl_vertices, mut faces } = mesh;
         let n = 3 * faces.len();
         let mut vertices = Vec::with_capacity(n); // Vertices are duplicated in order to properly
@@ -58,15 +68,12 @@ impl StlLoaderSettings {
         let mut indices = Vec::with_capacity(n);
 
         for (i, face) in faces.drain(..).enumerate() {
-            let v: [[f32; 3]; 3] = {
-                let mut indices = face.vertices.iter();
-                std::array::from_fn(|_| {
-                    let v = stl_vertices[*indices.next().unwrap()];
-                    std::array::from_fn(|i| v[i])
-                })
-            };
+            let v: [[f32; 3]; 3] = std::array::from_fn(|j| {
+                let v = stl_vertices[face.vertices[j]];
+                std::array::from_fn(|k| v[k])
+            });
 
-            let normal = self.get_normal(&face, &v[0], &v[1], &v[2]);
+            let normal = self.get_normal(&face, &v);
 
             for j in 0..3 {
                 vertices.push(v[j]);
@@ -75,41 +82,92 @@ impl StlLoaderSettings {
             }
         }
 
-        let vertices = VertexAttributeValues::Float32x3(vertices);
-        let normals = VertexAttributeValues::Float32x3(normals);
-        let indices = Indices::U32(indices);
+        MeshData { vertices, normals, indices }.into()
+    }
 
-        Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_indices(indices)
+    fn build_interpolate(&self, mesh: stl_io::IndexedMesh) -> Mesh {
+        let stl_io::IndexedMesh { mut vertices, mut faces } = mesh;
+
+        let vertices: Vec<[f32; 3]> = vertices.drain(..)
+             .map(|vertex| std::array::from_fn::<f32, 3, _>(|i| vertex[i]))
+             .collect();
+
+        let (indices, mut normals) = {
+            let mut indices: Vec<u32> = Vec::with_capacity(3 * faces.len());
+            let mut normals = vec![Vec3::ZERO; vertices.len()];
+            for face in faces.drain(..) {
+                let v: [Vec3; 3] = std::array::from_fn(|i| vertices[face.vertices[i]].into());
+                let normal = self.get_normal(&face, &v);
+                let c = (v[0] + v[1] + v[2]) / 3.0;
+                face.vertices.iter()
+                    .enumerate()
+                    .for_each(|(i, index)| {
+                        indices.push(*index as u32);
+                        let w = 1.0 / (v[i] - c).length();
+                        normals[*index] += w * normal;
+                    });
+            }
+            (indices, normals)
+        };
+
+        let normals = {
+            let mut n: Vec<[f32; 3]> = Vec::with_capacity(normals.len());
+            for normal in normals.drain(..) {
+                let normal: [f32; 3] = normal.normalize().into();
+                n.push(normal);
+            }
+            n
+        };
+
+        MeshData { vertices, normals, indices }.into()
     }
 
     #[inline]
-    fn get_normal(
+    fn get_normal<T> (
         &self,
         face: &stl_io::IndexedTriangle,
-        v0: &[f32; 3],
-        v1: &[f32; 3],
-        v2: &[f32; 3],
-    ) -> [f32; 3] {
-        let normal = std::array::from_fn::<f32, 3, _>(|i| face.normal[i]);
+        vertices: &[T; 3],
+    ) -> T
+    where
+        T: Copy + From<[f32; 3]> + From<Vec3>,
+        Vec3: From<T>,
+    {
+        let normal: T = std::array::from_fn::<f32, 3, _>(|i| face.normal[i]).into();
         if self.compute_normal {
             let normal: Vec3 = normal.into();
             let normal = if normal.length() > 0.0 {
                 normal
             } else {
-                let v0 = Vec3::from(*v0);
-                let v1 = Vec3::from(*v1);
-                let v2 = Vec3::from(*v2);
+                let v0 = Vec3::from(vertices[0]);
+                let v1 = Vec3::from(vertices[1]);
+                let v2 = Vec3::from(vertices[2]);
                 (v1 - v0).cross(v2 - v0).normalize()
             };
             normal.into()
         } else {
             normal
         }
+    }
+}
+
+struct MeshData {
+    vertices: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    indices: Vec<u32>,
+}
+
+impl From<MeshData> for Mesh {
+    fn from(value: MeshData) -> Self {
+        let vertices = VertexAttributeValues::Float32x3(value.vertices);
+        let normals = VertexAttributeValues::Float32x3(value.normals);
+        let indices = Indices::U32(value.indices);
+
+        Self::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_indices(indices)
     }
 }
