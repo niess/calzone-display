@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::prelude::*;
 
@@ -41,17 +40,6 @@ fn spawn_viewer(mut commands: Commands) {
                         fov: 70.0_f32.to_radians(),
                         ..default()
                     }.into(),
-                    ..default()
-                }
-            );
-            parent.spawn(
-                PointLightBundle {
-                    point_light: PointLight {
-                        color: Color::from(tailwind::ROSE_300),
-                        shadows_enabled: true,
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0.0, 100.0, 100.0),
                     ..default()
                 }
             );

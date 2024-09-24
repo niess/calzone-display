@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 bevy = "0.14"
 bevy_rapier3d = "0.27"
-bevy_stl = "0.14"
+stl_io = "0.8"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
