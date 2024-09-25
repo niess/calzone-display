@@ -8,13 +8,13 @@ mod geometry;
 
 /// Run the viewer.
 #[pyfunction]
-fn run(path: &str) -> PyResult<()> {
+fn run(py: Python, path: &str) -> PyResult<()> {
     let mut app = App::new();
     app
         .add_plugins(DefaultPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(drone::DronePlugin)
-        .add_plugins(geometry::GeometryPlugin::new(path)?)
+        .add_plugins(geometry::GeometryPlugin::new(py, path)?)
         .add_systems(Startup, setup_physics)
         .run();
     Ok(())

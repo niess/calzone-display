@@ -1,24 +1,43 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use pyo3::prelude::*;
+use pyo3::exceptions::PyNotImplementedError;
+use std::ffi::OsStr;
 use std::path::Path;
+use std::sync::Arc;
 
+mod data;
 mod stl;
 
 
 pub struct GeometryPlugin (Configuration);
 
 #[derive(Clone, Default, Resource)]
-struct Configuration (Option<String>);
+enum Configuration {
+    Data(Arc<data::GeometryData>),
+    Stl(String),
+    #[default]
+    None,
+}
 
 impl GeometryPlugin{
-    pub fn new(path: &str) -> PyResult<Self> {
-        let path = Path::new(path)
-            .canonicalize()?
-            .to_str()
-            .unwrap()
-            .to_string();
-        let config = Configuration (Some(path));
+    pub fn new(py: Python, file: &str) -> PyResult<Self> {
+        let path = Path::new(file);
+        let config = match path.extension().and_then(OsStr::to_str) {
+            Some("json") | Some("toml") | Some("yml") | Some("yaml") => {
+                let data = data::GeometryData::new(py, file)?;
+                Configuration::Data(Arc::new(data))
+            },
+            Some("stl") => {
+                let path = path
+                    .canonicalize()?
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+                Configuration::Stl(path)
+            }
+            _ => return Err(PyNotImplementedError::new_err("")),
+        };
         Ok(Self(config))
     }
 }
@@ -41,7 +60,7 @@ fn spawn_geometry(
     asset_server: Res<AssetServer>,
     config: Res<Configuration>,
 ) {
-    if let Some(path) = &config.0 {
+    if let Configuration::Stl(path) = config.as_ref() {
         commands.spawn(PbrBundle {
             mesh: asset_server.load(path),
             material: materials.add(
