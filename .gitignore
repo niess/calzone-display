@@ -1,3 +1,5 @@
 .cargo
 Cargo.lock
+*.pyc
+*.so
 /target

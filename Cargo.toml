@@ -1,7 +1,10 @@
 [package]
-name = "calzone-viewer"
+name = "calzone_viewer"
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
 bevy = { version = "0.14", default-features = false, features = [
@@ -16,6 +19,7 @@ bevy = { version = "0.14", default-features = false, features = [
     "x11",
 ]}
 bevy_rapier3d = "0.27"
+pyo3 = { version = "0.22", features = ["abi3", "extension-module"] }
 serde = { version = "1", features = ["derive"] }
 stl_io = "0.8"
 
