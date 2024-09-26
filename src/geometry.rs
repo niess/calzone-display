@@ -3,14 +3,15 @@ use bevy::color::palettes::css::*;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::ffi::OsStr;
+use std::ops::DerefMut;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 mod data;
 mod stl;
 
 
-pub struct GeometryPlugin (Configuration);
+pub struct GeometryPlugin (Mutex<Configuration>);
 
 #[derive(Clone, Default, Resource)]
 enum Configuration {
@@ -38,7 +39,7 @@ impl GeometryPlugin{
             }
             _ => return Err(PyNotImplementedError::new_err("")),
         };
-        Ok(Self(config))
+        Ok(Self(Mutex::new(config)))
     }
 }
 
@@ -46,21 +47,28 @@ impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_asset_loader::<stl::StlLoader>()
-            .add_systems(Startup, (spawn_geometry, setup_light));
+            .add_systems(Startup, (setup_geometry, setup_light));
 
-        let mut config = app.world_mut()
-            .get_resource_or_insert_with::<Configuration>(Default::default);
-        *config = self.0.clone();
+        // Promote the geometry data to a Resource.
+        match &mut self.0.lock() {
+            Err(_) => unimplemented!(),
+            Ok(config) => {
+                app
+                    .world_mut()
+                    .insert_resource::<Configuration>(std::mem::take(config));
+            },
+        }
     }
 }
 
-fn spawn_geometry(
+fn setup_geometry(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    config: Res<Configuration>,
+    mut config: ResMut<Configuration>,
 ) {
-    if let Configuration::Stl(path) = config.as_ref() {
+    let config = std::mem::take(config.as_mut());
+    if let Configuration::Stl(path) = config {
         commands.spawn(PbrBundle {
             mesh: asset_server.load(path),
             material: materials.add(
@@ -70,6 +78,7 @@ fn spawn_geometry(
             }),
             ..default()
         });
+
     }
 }
 
