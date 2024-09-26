@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct GeometryData {
-    definition: GeometryDefinition,
+    pub definition: GeometryDefinition,
     algorithm: Algorithm,
 }
 
@@ -29,7 +29,6 @@ impl GeometryData {
     }
 }
 
-
 #[derive(Deserialize)]
 enum Algorithm {
     Bvh,
@@ -37,19 +36,19 @@ enum Algorithm {
 }
 
 #[derive(Deserialize)]
-struct GeometryDefinition {
-    volume: Box<Volume>,
+pub struct GeometryDefinition {
+    pub volume: Volume,
     materials: Option<MaterialsDefinition>,
 }
 
 #[derive(Deserialize)]
-struct Volume {
+pub struct Volume {
     name: String,
-    material: String,
-    shape: Shape,
-    position: Option<[f64; 3]>,
-    rotation: Option<[[f64; 3]; 3]>,
-    volumes: Vec<Volume>,
+    pub material: String,
+    pub shape: Shape,
+    pub position: Option<[f64; 3]>,
+    pub rotation: Option<[[f64; 3]; 3]>,
+    pub volumes: Vec<Volume>,
     overlaps: Vec<[String; 2]>,
     roles: Roles,
     subtract: Vec<String>,
@@ -57,7 +56,7 @@ struct Volume {
 }
 
 #[derive(Deserialize)]
-enum Shape {
+pub enum Shape {
     Box(BoxShape),
     Cylinder(CylinderShape),
     Envelope(EnvelopeShape),
@@ -66,30 +65,27 @@ enum Shape {
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
-struct BoxShape {
-    size: [f64; 3],
+pub struct BoxShape {
+    pub size: [f64; 3],
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
-struct CylinderShape {
-    radius: f64,
-    length: f64,
-    thickness: f64,
-    section: [f64; 2],
+pub struct CylinderShape {
+    pub radius: f64,
+    pub length: f64,
+    pub thickness: f64,
+    pub section: [f64; 2],
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
-struct EnvelopeShape {
-    shape: ShapeType,
-    safety: f64,
+pub struct EnvelopeShape {
+    pub shape: ShapeType,
+    pub safety: f64,
 }
 
 #[derive(Deserialize)]
 #[repr(i32)]
-enum ShapeType {
+pub enum ShapeType {
     Box,
     Cylinder,
     Envelope,
@@ -98,18 +94,16 @@ enum ShapeType {
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
-struct SphereShape {
-    radius: f64,
-    thickness: f64,
-    azimuth_section: [f64; 2],
-    zenith_section: [f64; 2],
+pub struct SphereShape {
+    pub radius: f64,
+    pub thickness: f64,
+    pub azimuth_section: [f64; 2],
+    pub zenith_section: [f64; 2],
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
-struct TessellatedShape {
-    facets: Vec<f32>,
+pub struct TessellatedShape {
+    pub facets: Vec<f32>,
 }
 
 #[derive(Deserialize)]
@@ -117,7 +111,6 @@ struct TessellatedShape {
 struct Action (u32);
 
 #[derive(Deserialize)]
-#[repr(C)]
 struct Roles {
     ingoing: Action,
     outgoing: Action,
@@ -132,7 +125,6 @@ struct MaterialsDefinition {
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
 #[allow(non_snake_case)]
 struct Element {
     name: String,
@@ -154,28 +146,24 @@ struct MaterialProperties {
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
 struct Mixture {
     properties: MaterialProperties,
     components: Vec<MixtureComponent>,
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
 struct MixtureComponent {
     name: String,
     weight: f64,
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
 struct Molecule {
     properties: MaterialProperties,
     components: Vec<MoleculeComponent>,
 }
 
 #[derive(Deserialize)]
-#[repr(C)]
 struct MoleculeComponent {
     name: String,
     weight: u32,
