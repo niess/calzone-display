@@ -74,13 +74,30 @@ fn setup_geometry(
     let config = std::mem::take(config.as_mut());
     match config {
         Configuration::Data(data) => {
+            fn spawn_them_all( // recursively.
+                parent: &mut EntityCommands,
+                volumes: Vec<data::Volume>,
+                meshes: &mut Assets<Mesh>,
+                materials: &mut Assets<StandardMaterial>,
+            ) {
+                parent.with_children(|parent| {
+                    for mut volume in volumes {
+                        let mut volumes = std::mem::take(&mut volume.volumes);
+                        let mut child = parent.spawn(
+                            bundle::VolumeBundle::new(volume, meshes, materials)
+                        );
+                        spawn_them_all(&mut child, volumes, meshes, materials);
+                    }
+                });
+            }
+
             let data = Arc::into_inner(data).unwrap();
             let mut root = data.definition.volume;
             let volumes = std::mem::take(&mut root.volumes);
             let mut root = commands.spawn(
                 bundle::VolumeBundle::new(root, &mut meshes, &mut materials)
             );
-            create_volumes(&mut root, volumes, &mut meshes, &mut materials);
+            spawn_them_all(&mut root, volumes, &mut meshes, &mut materials);
         },
         Configuration::Stl(path) => {
             commands.spawn(PbrBundle {
@@ -94,21 +111,6 @@ fn setup_geometry(
         },
         Configuration::None => (),
     }
-}
-
-fn create_volumes<'a>(
-    parent: &mut EntityCommands<'a>,
-    volumes: Vec<data::Volume>,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
-    parent.with_children(|parent| {
-        for mut volume in volumes {
-            let mut volumes = std::mem::take(&mut volume.volumes);
-            let mut child = parent.spawn(bundle::VolumeBundle::new(volume, meshes, materials));
-            create_volumes(&mut child, volumes, meshes, materials);
-        }
-    });
 }
 
 fn setup_light(mut commands: Commands) {

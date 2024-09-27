@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 use bevy::asset::{AssetLoader, AsyncReadExt, LoadContext};
 use bevy::asset::io::Reader;
-use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
-use bevy::render::render_asset::RenderAssetUsages;
 use serde::{Deserialize, Serialize};
+use super::meshes::MeshData;
 
 
 #[derive(Default)]
@@ -138,36 +137,11 @@ impl StlLoaderSettings {
             let normal = if normal.length() > 0.0 {
                 normal
             } else {
-                let v0 = Vec3::from(vertices[0]);
-                let v1 = Vec3::from(vertices[1]);
-                let v2 = Vec3::from(vertices[2]);
-                (v1 - v0).cross(v2 - v0).normalize()
+                MeshData::compute_normal(vertices)
             };
             normal.into()
         } else {
             normal
         }
-    }
-}
-
-struct MeshData {
-    vertices: Vec<[f32; 3]>,
-    normals: Vec<[f32; 3]>,
-    indices: Vec<u32>,
-}
-
-impl From<MeshData> for Mesh {
-    fn from(value: MeshData) -> Self {
-        let vertices = VertexAttributeValues::Float32x3(value.vertices);
-        let normals = VertexAttributeValues::Float32x3(value.normals);
-        let indices = Indices::U32(value.indices);
-
-        Self::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_indices(indices)
     }
 }
