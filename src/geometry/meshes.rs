@@ -10,7 +10,7 @@ impl From<Shape> for Mesh {
         match value {
             Shape::Box(shape) => shape.into(),
             Shape::Cylinder(shape) => shape.into(),
-            Shape::Envelope(_) => unimplemented!(),
+            Shape::Envelope(_) => unreachable!(),
             Shape::Sphere(shape) => shape.into(),
             Shape::Tessellation(shape) => shape.into(),
         }

@@ -1,3 +1,5 @@
+use bevy::prelude::*;
+use bevy::math::bounding::Bounded3d;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyBytes;
@@ -21,11 +23,21 @@ impl GeometryData {
         let bytes = bytes.downcast::<PyBytes>()?;
 
         let mut deserializer = Deserializer::new(bytes.as_bytes());
-        Deserialize::deserialize(&mut deserializer)
+        let mut data: Self = Deserialize::deserialize(&mut deserializer)
             .map_err(|err| {
                 let msg = format!("{}", err);
                 PyTypeError::new_err(msg)
-            })
+            })?;
+
+        fn resolve(volume: &mut Volume) { // recursively.
+            for v in volume.volumes.iter_mut() {
+                resolve(v)
+            }
+            volume.resolve();
+        }
+        resolve(&mut data.definition.volume);
+
+        Ok(data)
     }
 }
 
@@ -53,6 +65,37 @@ pub struct Volume {
     roles: Roles,
     subtract: Vec<String>,
     materials: Option<MaterialsDefinition>,
+}
+
+impl Volume {
+    fn resolve(&mut self) {
+        if let Shape::Envelope(envelope) = &self.shape {
+            let mut min = Vec3 { x: f32::INFINITY, y: f32::INFINITY, z: f32::INFINITY };
+            let mut max = Vec3 { x: -f32::INFINITY, y: -f32::INFINITY, z: -f32::INFINITY };
+            for volume in self.volumes.iter() {
+                match &volume.shape {
+                    Shape::Box(shape) => {
+                        let size: Vec3 = std::array::from_fn(|i| shape.size[i] as f32).into();
+                        let aabb = Cuboid::from_size(size)
+                            .aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+                        min = min.min(aabb.min.into());
+                        max = max.max(aabb.max.into());
+                    },
+                    _ => unimplemented!(),
+                }
+            }
+
+            let origin: [f32; 3] = (0.5 * (min + max)).into(); // XXX Translate the shape.
+            let size: [f32; 3] = (max - min).into();
+            let origin: [f64; 3] = std::array::from_fn(|i| origin[i] as f64);
+            let size: [f64; 3] = std::array::from_fn(|i| size[i] as f64);
+
+            self.shape = match envelope.shape {
+                ShapeType::Box => Shape::Box(BoxShape{ size }),
+                _ => unimplemented!(),
+            };
+        }
+    }
 }
 
 #[derive(Deserialize)]
