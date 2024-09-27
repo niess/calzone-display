@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
-use super::data::Volume;
+use super::data::VolumeInfo;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use super::units::Meters;
@@ -15,11 +15,11 @@ pub struct VolumeBundle (PbrBundle);
 
 impl VolumeBundle {
     pub fn new(
-        volume: Volume,
+        volume: VolumeInfo,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<StandardMaterial>,
     ) -> Self {
-        let mesh = meshes.add(Mesh::from(volume.shape));
+        let mesh = meshes.add(Mesh::from(volume.solid));
         let material = MATERIALS.lock().unwrap()
             .entry(volume.material)
             .or_insert_with(|| {
@@ -28,17 +28,12 @@ impl VolumeBundle {
                     ..default()
                 })
             }).clone();
-        let transform = match volume.position {
-            Some(r) => Transform::from_xyz(
-                r[0].meters(),
-                r[1].meters(),
-                r[2].meters(),
-            ), // XXX Apply rotation as well.
-            None => match volume.rotation {
-                Some(rotation) => unimplemented!(),
-                None => Transform::default(),
-            },
-        };
+        let transform = Transform::from_xyz(
+            volume.transform.translation[0].meters(),
+            volume.transform.translation[1].meters(),
+            volume.transform.translation[2].meters(),
+        );
+        // XXX Apply rotation as well.
         let pbr = PbrBundle { mesh, material, transform, ..default() };
         Self (pbr)
     }

@@ -1,74 +1,52 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
 use bevy::render::render_asset::RenderAssetUsages;
-use super::data::{BoxShape, CylinderShape, Shape, SphereShape, TessellatedShape};
+use super::data::{BoxInfo, OrbInfo, SolidInfo, SphereInfo, TessellationInfo, TubsInfo};
 use super::units::Meters;
 
 
-impl From<Shape> for Mesh {
-    fn from(value: Shape) -> Self {
+impl From<SolidInfo> for Mesh {
+    fn from(value: SolidInfo) -> Self {
         match value {
-            Shape::Box(shape) => shape.into(),
-            Shape::Cylinder(shape) => shape.into(),
-            Shape::Envelope(_) => unreachable!(),
-            Shape::Sphere(shape) => shape.into(),
-            Shape::Tessellation(shape) => shape.into(),
+            SolidInfo::Box(solid) => solid.into(),
+            SolidInfo::Orb(solid) => solid.into(),
+            SolidInfo::Sphere(solid) => solid.into(),
+            SolidInfo::Tessellation(solid) => solid.into(),
+            SolidInfo::Tubs(solid) => solid.into(),
         }
     }
 }
 
-impl From<BoxShape> for Mesh {
-    fn from(value: BoxShape) -> Self {
+impl From<BoxInfo> for Mesh {
+    fn from(value: BoxInfo) -> Self {
         let size: Vec3 = std::array::from_fn(|i| value.size[i].meters()).into();
         Cuboid::from_size(size).into()
     }
 }
 
-impl From<CylinderShape> for Mesh {
-    fn from(value: CylinderShape) -> Self {
-        if value.thickness <= 0.0 {
-            if value.section == [ 0.0, 360.0 ] {
-                Cylinder::new(
-                    value.radius.meters(),
-                    value.length.meters(),
-                )
-                    .mesh()
-                    .resolution(256)
-                    .build()
-            } else {
-                unimplemented!()
-            }
-        } else {
-            unimplemented!()
-        }
+impl From<OrbInfo> for Mesh {
+    fn from(value: OrbInfo) -> Self {
+        Sphere::new(value.radius.meters())
+            .mesh()
+            .ico(7)
+            .unwrap_or_else(|err| panic!("{}", err))
     }
 }
 
-impl From<SphereShape> for Mesh {
-    fn from(value: SphereShape) -> Self {
-        if value.thickness <= 0.0 {
-            if value.azimuth_section == [ 0.0, 360.0 ] && value.zenith_section == [1.0, 180.0] {
-                Sphere::new(value.radius.meters())
-                    .mesh()
-                    .ico(7)
-                    .unwrap_or_else(|err| panic!("{}", err))
-            } else {
-                unimplemented!()
-            }
-        } else {
-            unimplemented!()
-        }
+impl From<SphereInfo> for Mesh {
+    fn from(_value: SphereInfo) -> Self {
+        unimplemented!()
     }
 }
 
-impl From<TessellatedShape> for Mesh {
-    fn from(value: TessellatedShape) -> Self {
-        let n = value.facets.len();
+impl From<TessellationInfo> for Mesh {
+    fn from(value: TessellationInfo) -> Self {
+        let n = value.0.len() / 3;
         let mut vertices = Vec::with_capacity(n); // Vertices are duplicated in order to properly
         let mut normals = Vec::with_capacity(n);  // apply faces normals.
         let mut indices = Vec::with_capacity(n);
 
-        for (i, facet) in value.facets.chunks_exact(9).enumerate() {
+        for (i, facet) in value.0.chunks_exact(9).enumerate() {
             let v: [[f32; 3]; 3] = std::array::from_fn(|j| {
                 let v = &facet[(3 * j)..(3 * (j + 1))];
                 std::array::from_fn(|k| v[k].meters())
@@ -84,6 +62,26 @@ impl From<TessellatedShape> for Mesh {
         }
 
         MeshData { vertices, normals, indices }.into()
+    }
+}
+
+impl From<TubsInfo> for Mesh {
+    fn from(value: TubsInfo) -> Self {
+        if value.inner_radius == 0.0 {
+            if value.delta_phi >= std::f64::consts::PI {
+                Cylinder::new(
+                    value.outer_radius.meters(),
+                    value.length.meters(),
+                )
+                    .mesh()
+                    .resolution(256)
+                    .build()
+            } else {
+                unimplemented!()
+            }
+        } else {
+            unimplemented!()
+        }
     }
 }
 

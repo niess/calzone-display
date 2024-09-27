@@ -18,7 +18,7 @@ pub struct GeometryPlugin (Mutex<Configuration>);
 
 #[derive(Clone, Default, Resource)]
 enum Configuration {
-    Data(Arc<data::GeometryData>),
+    Data(Arc<data::VolumeInfo>),
     Stl(String),
     #[default]
     None,
@@ -29,7 +29,7 @@ impl GeometryPlugin{
         let path = Path::new(file);
         let config = match path.extension().and_then(OsStr::to_str) {
             Some("json") | Some("toml") | Some("yml") | Some("yaml") => {
-                let data = data::GeometryData::new(py, file)?;
+                let data = data::VolumeInfo::new(py, file)?;
                 Configuration::Data(Arc::new(data))
             },
             Some("stl") => {
@@ -73,16 +73,16 @@ fn setup_geometry(
 ) {
     let config = std::mem::take(config.as_mut());
     match config {
-        Configuration::Data(data) => {
+        Configuration::Data(root) => {
             fn spawn_them_all( // recursively.
                 parent: &mut EntityCommands,
-                volumes: Vec<data::Volume>,
+                volumes: Vec<data::VolumeInfo>,
                 meshes: &mut Assets<Mesh>,
                 materials: &mut Assets<StandardMaterial>,
             ) {
                 parent.with_children(|parent| {
                     for mut volume in volumes {
-                        let mut volumes = std::mem::take(&mut volume.volumes);
+                        let volumes = std::mem::take(&mut volume.daughters);
                         let mut child = parent.spawn(
                             bundle::VolumeBundle::new(volume, meshes, materials)
                         );
@@ -91,9 +91,8 @@ fn setup_geometry(
                 });
             }
 
-            let data = Arc::into_inner(data).unwrap();
-            let mut root = data.definition.volume;
-            let volumes = std::mem::take(&mut root.volumes);
+            let mut root = Arc::into_inner(root).unwrap();
+            let volumes = std::mem::take(&mut root.daughters);
             let mut root = commands.spawn(
                 bundle::VolumeBundle::new(root, &mut meshes, &mut materials)
             );
