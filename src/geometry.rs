@@ -102,7 +102,7 @@ fn setup_geometry(
             commands.spawn(PbrBundle {
                 mesh: asset_server.load(path),
                 material: materials.add(StandardMaterial {
-                    base_color: BROWN.into(),
+                    base_color: SADDLE_BROWN.into(),
                     ..default()
                 }),
                 ..default()
@@ -115,6 +115,7 @@ fn setup_geometry(
 fn setup_light(mut commands: Commands) {
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            color: LIGHT_YELLOW.into(),
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
