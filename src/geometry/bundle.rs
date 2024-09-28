@@ -25,6 +25,7 @@ impl VolumeBundle {
             .or_insert_with(|| {
                 materials.add(StandardMaterial {
                     base_color: WHITE.into(),
+                    cull_mode: None,
                     ..default()
                 })
             }).clone();
