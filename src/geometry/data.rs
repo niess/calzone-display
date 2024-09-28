@@ -23,15 +23,15 @@ pub enum SolidInfo {
 }
 
 #[derive(Deserialize)]
-#[serde(transparent)]
 pub struct BoxInfo {
-    pub size: [f64; 3]
+    pub size: [f64; 3],
+    pub displacement: [f64; 3],
 }
 
 #[derive(Deserialize)]
-#[serde(transparent)]
 pub struct OrbInfo {
     pub radius: f64,
+    pub displacement: [f64; 3],
 }
 
 #[derive(Deserialize)]
@@ -61,6 +61,7 @@ pub struct TubsInfo {
     pub length: f64,
     pub start_phi: f64,
     pub delta_phi: f64,
+    pub displacement: [f64; 3],
 }
 
 impl VolumeInfo {

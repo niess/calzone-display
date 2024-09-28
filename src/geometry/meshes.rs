@@ -20,16 +20,27 @@ impl From<SolidInfo> for Mesh {
 impl From<BoxInfo> for Mesh {
     fn from(value: BoxInfo) -> Self {
         let size: Vec3 = std::array::from_fn(|i| value.size[i].meters()).into();
-        Cuboid::from_size(size).into()
+        let mut mesh: Mesh = Cuboid::from_size(size).into();
+        apply_any_displacement(&mut mesh, &value.displacement);
+        mesh
+    }
+}
+
+fn apply_any_displacement(mesh: &mut Mesh, displacement: &[f64; 3]) {
+    if displacement.iter().map(|x| x.abs()).sum::<f64>() > 0.0 {
+        let displacement: [f32; 3] = std::array::from_fn(|i| displacement[i].meters());
+        mesh.translate_by(displacement.into());
     }
 }
 
 impl From<OrbInfo> for Mesh {
     fn from(value: OrbInfo) -> Self {
-        Sphere::new(value.radius.meters())
+        let mut mesh = Sphere::new(value.radius.meters())
             .mesh()
             .ico(7)
-            .unwrap_or_else(|err| panic!("{}", err))
+            .unwrap_or_else(|err| panic!("{}", err));
+        apply_any_displacement(&mut mesh, &value.displacement);
+        mesh
     }
 }
 
@@ -69,13 +80,15 @@ impl From<TubsInfo> for Mesh {
     fn from(value: TubsInfo) -> Self {
         if value.inner_radius == 0.0 {
             if value.delta_phi >= std::f64::consts::PI {
-                Cylinder::new(
+                let mut mesh = Cylinder::new(
                     value.outer_radius.meters(),
                     value.length.meters(),
                 )
                     .mesh()
                     .resolution(256)
-                    .build()
+                    .build();
+                apply_any_displacement(&mut mesh, &value.displacement);
+                mesh
             } else {
                 unimplemented!()
             }
