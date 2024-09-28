@@ -11,7 +11,7 @@ type Materials = HashMap<String, Handle<StandardMaterial>>;
 static MATERIALS: LazyLock<Mutex<Materials>> = LazyLock::new(|| Mutex::new(Materials::new()));
 
 #[derive(Bundle)]
-pub struct VolumeBundle (PbrBundle);
+pub struct VolumeBundle (pub PbrBundle);
 
 impl VolumeBundle {
     pub fn new(

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
+use bevy::render::primitives::Aabb;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::ffi::OsStr;
@@ -15,6 +16,12 @@ mod units;
 
 
 pub struct GeometryPlugin (Mutex<Configuration>);
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GeometrySet;
+
+#[derive(Component)]
+pub struct GeometryExtent (pub Aabb);
 
 #[derive(Clone, Default, Resource)]
 enum Configuration {
@@ -50,7 +57,7 @@ impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_asset_loader::<stl::StlLoader>()
-            .add_systems(Startup, (setup_geometry, setup_light));
+            .add_systems(Startup, (setup_geometry, setup_light).in_set(GeometrySet));
 
         // Promote the geometry data to a Resource.
         match &mut self.0.lock() {
@@ -93,9 +100,15 @@ fn setup_geometry(
 
             let mut root = Arc::into_inner(root).unwrap();
             let volumes = std::mem::take(&mut root.daughters);
-            let mut root = commands.spawn(
-                bundle::VolumeBundle::new(root, &mut meshes, &mut materials)
+            let root = bundle::VolumeBundle::new(root, &mut meshes, &mut materials);
+            let extent = GeometryExtent(
+                meshes
+                    .get(&root.0.mesh)
+                    .unwrap()
+                    .compute_aabb()
+                    .unwrap()
             );
+            let mut root = commands.spawn((root, extent));
             spawn_them_all(&mut root, volumes, &mut meshes, &mut materials);
         },
         Configuration::Stl(path) => {

@@ -4,12 +4,12 @@ pub trait Meters {
 
 impl Meters for f32 {
     fn meters(&self) -> f32 {
-        *self * 1e-2
+        *self * 1e-3
     }
 }
 
 impl Meters for f64 {
     fn meters(&self) -> f32 {
-        (*self * 1e-2) as f32
+        (*self * 1e-3) as f32
     }
 }
