@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
-use bevy::render::primitives::Aabb;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::ffi::OsStr;
@@ -21,7 +20,7 @@ pub struct GeometryPlugin (Mutex<Configuration>);
 pub struct GeometrySet;
 
 #[derive(Component)]
-pub struct GeometryExtent (pub Aabb);
+pub struct RootVolume;
 
 #[derive(Clone, Default, Resource)]
 enum Configuration {
@@ -101,25 +100,21 @@ fn setup_geometry(
             let mut root = Arc::into_inner(root).unwrap();
             let volumes = std::mem::take(&mut root.daughters);
             let root = bundle::VolumeBundle::new(root, &mut meshes, &mut materials);
-            let extent = GeometryExtent(
-                meshes
-                    .get(&root.0.mesh)
-                    .unwrap()
-                    .compute_aabb()
-                    .unwrap()
-            );
-            let mut root = commands.spawn((root, extent));
+            let mut root = commands.spawn((root, RootVolume));
             spawn_them_all(&mut root, volumes, &mut meshes, &mut materials);
         },
         Configuration::Stl(path) => {
-            commands.spawn(PbrBundle {
-                mesh: asset_server.load(path),
-                material: materials.add(StandardMaterial {
-                    base_color: SADDLE_BROWN.into(),
+            commands.spawn((
+                PbrBundle {
+                    mesh: asset_server.load(path),
+                    material: materials.add(StandardMaterial {
+                        base_color: SADDLE_BROWN.into(),
+                        ..default()
+                    }),
                     ..default()
-                }),
-                ..default()
-            });
+                },
+                RootVolume,
+            ));
         },
         Configuration::None => (),
     }

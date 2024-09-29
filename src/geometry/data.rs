@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct VolumeInfo {
+    pub name: String,
     pub solid: SolidInfo,
     pub material: String,
     pub transform: TransformInfo,

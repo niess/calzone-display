@@ -3,7 +3,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
-use super::geometry::{GeometryExtent, GeometrySet};
+use super::geometry::{GeometrySet, RootVolume};
 
 
 pub struct DronePlugin;
@@ -24,9 +24,14 @@ struct Drone;
 
 fn spawn_drone(
     mut commands: Commands,
-    query: Query<&GeometryExtent>,
+    meshes: Res<Assets<Mesh>>,
+    query: Query<&Handle<Mesh>, With<RootVolume>>,
 ) {
-    let aabb = query.single().0;
+    let aabb = meshes
+        .get(query.single())
+        .unwrap()
+        .compute_aabb()
+        .unwrap();
     let [dx, dy, dz] = aabb.half_extents.into();
     let origin = Vec3::from(aabb.center);
     let start_position = origin + Vec3::new(1.5 * dx, 1.5 * dy, 3.0 * dz);
