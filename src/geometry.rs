@@ -54,9 +54,7 @@ impl GeometryPlugin{
 
 impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_asset_loader::<stl::StlLoader>()
-            .add_systems(Startup, (setup_geometry, setup_light).in_set(GeometrySet));
+        app.add_systems(Startup, (setup_geometry, setup_light).in_set(GeometrySet));
 
         // Promote the geometry data to a Resource.
         match &mut self.0.lock() {
@@ -74,7 +72,6 @@ fn setup_geometry(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
     mut config: ResMut<Configuration>,
 ) {
     let config = std::mem::take(config.as_mut());
@@ -104,9 +101,11 @@ fn setup_geometry(
             spawn_them_all(&mut root, volumes, &mut meshes, &mut materials);
         },
         Configuration::Stl(path) => {
+            let mesh = stl::load(path.as_str(), None)
+                .unwrap_or_else(|err| panic!("{}", err));
             commands.spawn((
                 PbrBundle {
-                    mesh: asset_server.load(path),
+                    mesh: meshes.add(mesh),
                     material: materials.add(StandardMaterial {
                         base_color: SADDLE_BROWN.into(),
                         ..default()

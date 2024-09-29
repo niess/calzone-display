@@ -71,7 +71,7 @@ impl VolumeInfo {
             .and_then(|x| x.getattr("Geometry"))
             .and_then(|x| x.call1((path,)))
             .and_then(|x| x.getattr("root"))
-            .and_then(|x| x.getattr("bytes"))
+            .and_then(|x| x.getattr("to_bytes"))
             .and_then(|x| x.call0())?;
         let bytes = bytes.downcast::<PyBytes>()?;
 

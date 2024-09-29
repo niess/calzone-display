@@ -27,8 +27,9 @@ fn spawn_drone(
     meshes: Res<Assets<Mesh>>,
     query: Query<&Handle<Mesh>, With<RootVolume>>,
 ) {
+    let root = query.single();
     let aabb = meshes
-        .get(query.single())
+        .get(root)
         .unwrap()
         .compute_aabb()
         .unwrap();

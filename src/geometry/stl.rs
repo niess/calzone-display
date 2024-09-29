@@ -1,47 +1,24 @@
 use bevy::prelude::*;
-use bevy::asset::{AssetLoader, AsyncReadExt, LoadContext};
-use bevy::asset::io::Reader;
-use serde::{Deserialize, Serialize};
 use super::meshes::MeshData;
 
 
-#[derive(Default)]
-pub struct StlLoader;
-
-impl AssetLoader for StlLoader {
-    type Asset = Mesh;
-    type Settings = StlLoaderSettings;
-    type Error = std::io::Error;
-
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        reader
-            .read_to_end(&mut bytes)
-            .await?;
-        let mut bytes = std::io::Cursor::new(bytes);
-        let mesh = stl_io::read_stl(&mut bytes)?;
-        let mesh = settings.build(mesh);
-        Ok(mesh)
-    }
-
-    fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["stl"];
-        EXTENSIONS
-    }
+pub fn load(
+    path: &str,
+    settings: Option<LoadSettings>,
+) -> Result<Mesh, std::io::Error> {
+    let mut bytes = std::fs::File::open(path)?;
+    let mesh = stl_io::read_stl(&mut bytes)?;
+    let settings = settings.unwrap_or_else(|| LoadSettings::default());
+    let mesh = settings.build(mesh);
+    Ok(mesh)
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct StlLoaderSettings {
+pub struct LoadSettings {
     compute_normal: bool,
     interpolate_normal: bool,
 }
 
-impl Default for StlLoaderSettings {
+impl Default for LoadSettings {
     fn default() -> Self {
         Self {
             compute_normal: true,
@@ -50,7 +27,7 @@ impl Default for StlLoaderSettings {
     }
 }
 
-impl StlLoaderSettings {
+impl LoadSettings {
     fn build(&self, mesh: stl_io::IndexedMesh) -> Mesh {
         if self.interpolate_normal {
             self.build_interpolate(mesh)
