@@ -22,6 +22,11 @@ pub struct GeometrySet;
 #[derive(Component)]
 pub struct RootVolume;
 
+#[derive(Component)]
+pub struct Volume {
+    pub name: String,
+}
+
 #[derive(Clone, Default, Resource)]
 enum Configuration {
     Data(Arc<data::VolumeInfo>),
@@ -103,6 +108,12 @@ fn setup_geometry(
         Configuration::Stl(path) => {
             let mesh = stl::load(path.as_str(), None)
                 .unwrap_or_else(|err| panic!("{}", err));
+            let name = Path::new(path.as_str())
+                .file_stem()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(); // XXX To Camel Case.
             commands.spawn((
                 PbrBundle {
                     mesh: meshes.add(mesh),
@@ -113,6 +124,7 @@ fn setup_geometry(
                     ..default()
                 },
                 RootVolume,
+                Volume { name },
             ));
         },
         Configuration::None => (),

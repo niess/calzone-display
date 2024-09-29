@@ -11,7 +11,10 @@ type Materials = HashMap<String, Handle<StandardMaterial>>;
 static MATERIALS: LazyLock<Mutex<Materials>> = LazyLock::new(|| Mutex::new(Materials::new()));
 
 #[derive(Bundle)]
-pub struct VolumeBundle (pub PbrBundle);
+pub struct VolumeBundle {
+    pub volume: super::Volume,
+    pub pbr: PbrBundle,
+}
 
 impl VolumeBundle {
     pub fn new(
@@ -36,6 +39,7 @@ impl VolumeBundle {
         );
         // XXX Apply rotation as well.
         let pbr = PbrBundle { mesh, material, transform, ..default() };
-        Self (pbr)
+        let volume = super::Volume { name: volume.name };
+        Self { volume, pbr }
     }
 }
