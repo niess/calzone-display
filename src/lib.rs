@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 
 mod drone;
 mod geometry;
+mod ui;
 
 
 /// Run the viewer.
@@ -13,8 +14,9 @@ fn run(py: Python, path: &str) -> PyResult<()> {
     app
         .add_plugins(DefaultPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(drone::DronePlugin)
         .add_plugins(geometry::GeometryPlugin::new(py, path)?)
+        .add_plugins(ui::UiPlugin)
+        .add_plugins(drone::DronePlugin)
         .add_systems(Startup, setup_physics)
         .run();
     Ok(())
