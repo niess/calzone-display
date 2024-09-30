@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
+use bevy::render::primitives::Aabb;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::ffi::OsStr;
@@ -25,6 +26,7 @@ pub struct RootVolume;
 #[derive(Component)]
 pub struct Volume {
     pub name: String,
+    pub aabb: Aabb,
 }
 
 #[derive(Clone, Default, Resource)]
@@ -85,29 +87,36 @@ fn setup_geometry(
             fn spawn_them_all( // recursively.
                 parent: &mut EntityCommands,
                 volumes: Vec<data::VolumeInfo>,
+                transform: GlobalTransform,
                 meshes: &mut Assets<Mesh>,
                 materials: &mut Assets<StandardMaterial>,
             ) {
                 parent.with_children(|parent| {
                     for mut volume in volumes {
                         let volumes = std::mem::take(&mut volume.daughters);
-                        let mut child = parent.spawn(
-                            bundle::VolumeBundle::new(volume, meshes, materials)
+                        let mut transform = transform.clone();
+                        let bundle = bundle::VolumeBundle::new(
+                            volume, &mut transform, meshes, materials
                         );
-                        spawn_them_all(&mut child, volumes, meshes, materials);
+                        let mut child = parent.spawn(bundle);
+                        spawn_them_all(&mut child, volumes, transform, meshes, materials);
                     }
                 });
             }
 
             let mut root = Arc::into_inner(root).unwrap();
             let volumes = std::mem::take(&mut root.daughters);
-            let root = bundle::VolumeBundle::new(root, &mut meshes, &mut materials);
+            let mut transform = GlobalTransform::IDENTITY;
+            let root = bundle::VolumeBundle::new(
+                root, &mut transform, &mut meshes, &mut materials
+            );
             let mut root = commands.spawn((root, RootVolume));
-            spawn_them_all(&mut root, volumes, &mut meshes, &mut materials);
+            spawn_them_all(&mut root, volumes, transform, &mut meshes, &mut materials);
         },
         Configuration::Stl(path) => {
             let mesh = stl::load(path.as_str(), None)
                 .unwrap_or_else(|err| panic!("{}", err));
+            let aabb = mesh.compute_aabb().unwrap();
             let name = Path::new(path.as_str())
                 .file_stem()
                 .unwrap()
@@ -124,7 +133,7 @@ fn setup_geometry(
                     ..default()
                 },
                 RootVolume,
-                Volume { name },
+                Volume { name, aabb },
             ));
         },
         Configuration::None => (),
@@ -141,4 +150,14 @@ fn setup_light(mut commands: Commands) {
         },
         ..default()
     });
+}
+
+impl Volume {
+    pub fn target(&self) -> Transform {
+        let [dx, dy, dz] = self.aabb.half_extents.into();
+        let origin = Vec3::from(self.aabb.center);
+        let start_position = origin + Vec3::new(1.5 * dx, 1.5 * dy, 3.0 * dz);
+        Transform::from_translation(start_position)
+            .looking_at(origin, Vec3::Z)
+    }
 }

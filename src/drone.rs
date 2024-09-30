@@ -3,7 +3,7 @@ use bevy::color::palettes::css::*;
 use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
-use super::geometry::{GeometrySet, RootVolume};
+use super::geometry::{GeometrySet, RootVolume, Volume};
 
 
 pub struct DronePlugin;
@@ -20,28 +20,17 @@ impl Plugin for DronePlugin {
 }
 
 #[derive(Component)]
-struct Drone;
+pub struct Drone;
 
 fn spawn_drone(
     mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    query: Query<&Handle<Mesh>, With<RootVolume>>,
+    query: Query<&Volume, With<RootVolume>>,
 ) {
     let root = query.single();
-    let aabb = meshes
-        .get(root)
-        .unwrap()
-        .compute_aabb()
-        .unwrap();
-    let [dx, dy, dz] = aabb.half_extents.into();
-    let origin = Vec3::from(aabb.center);
-    let start_position = origin + Vec3::new(1.5 * dx, 1.5 * dy, 3.0 * dz);
-
     commands
         .spawn(Drone)
         .insert(SpatialBundle {
-            transform: Transform::from_translation(start_position)
-                .looking_at(origin, Vec3::Z),
+            transform: root.target(),
             ..default()
         })
         .insert(RigidBody::Dynamic)
