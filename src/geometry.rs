@@ -62,7 +62,7 @@ impl GeometryPlugin{
 
 impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (setup_geometry, setup_light).in_set(GeometrySet));
+        app.add_systems(Startup, setup_geometry.in_set(GeometrySet));
 
         // Promote the geometry data to a Resource.
         match &mut self.0.lock() {
@@ -141,18 +141,6 @@ fn setup_geometry(
     }
 }
 
-fn setup_light(mut commands: Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: LIGHT_YELLOW.into(),
-            illuminance: light_consts::lux::OVERCAST_DAY,
-            shadows_enabled: true,
-            ..default()
-        },
-        ..default()
-    });
-}
-
 impl Volume {
     fn new(name: String, aabb: Aabb) -> Self {
         let expanded = false;
@@ -162,7 +150,7 @@ impl Volume {
     pub fn target(&self) -> Transform {
         let [dx, dy, dz] = self.aabb.half_extents.into();
         let origin = Vec3::from(self.aabb.center);
-        let start_position = origin + Vec3::new(1.5 * dx, 1.5 * dy, 3.0 * dz);
+        let start_position = origin + Vec3::new(-1.5 * dx, -1.5 * dy, 3.0 * dz);
         Transform::from_translation(start_position)
             .looking_at(origin, Vec3::Z)
     }

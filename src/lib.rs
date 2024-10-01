@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 
 mod drone;
 mod geometry;
+mod lighting;
 mod ui;
 
 
@@ -15,8 +16,9 @@ fn run(py: Python, path: &str) -> PyResult<()> {
         .add_plugins(DefaultPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(geometry::GeometryPlugin::new(py, path)?)
-        .add_plugins(ui::UiPlugin)
         .add_plugins(drone::DronePlugin)
+        .add_plugins(lighting::LightingPlugin)
+        .add_plugins(ui::UiPlugin)
         .add_systems(Startup, setup_physics)
         .run();
     Ok(())
