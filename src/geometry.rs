@@ -27,6 +27,7 @@ pub struct RootVolume;
 pub struct Volume {
     pub name: String,
     pub aabb: Aabb,
+    pub expanded: bool,
 }
 
 #[derive(Clone, Default, Resource)]
@@ -133,7 +134,7 @@ fn setup_geometry(
                     ..default()
                 },
                 RootVolume,
-                Volume { name, aabb },
+                Volume::new(name, aabb),
             ));
         },
         Configuration::None => (),
@@ -153,6 +154,11 @@ fn setup_light(mut commands: Commands) {
 }
 
 impl Volume {
+    fn new(name: String, aabb: Aabb) -> Self {
+        let expanded = false;
+        Self { name, aabb, expanded }
+    }
+
     pub fn target(&self) -> Transform {
         let [dx, dy, dz] = self.aabb.half_extents.into();
         let origin = Vec3::from(self.aabb.center);

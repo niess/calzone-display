@@ -45,7 +45,7 @@ impl VolumeBundle {
         let aabb = compute_aabb(&mesh, global_transform);
         let mesh = meshes.add(mesh);
         let pbr = PbrBundle { mesh, material, transform, ..default() };
-        let volume = super::Volume { name: volume.name, aabb };
+        let volume = super::Volume::new(volume.name, aabb);
         Self { volume, pbr }
     }
 }

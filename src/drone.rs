@@ -4,6 +4,7 @@ use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
 use super::geometry::{GeometrySet, RootVolume, Volume};
+use super::ui::TargetEvent;
 
 
 pub struct DronePlugin;
@@ -15,6 +16,7 @@ impl Plugin for DronePlugin {
             .add_systems(Update, (
                 on_mouse,
                 on_keybord,
+                on_target,
             ));
     }
 }
@@ -112,4 +114,15 @@ fn on_keybord(
 
     const STRENGTH: f32 = 50.0;
     external_force.force = STRENGTH * force;
+}
+
+fn on_target(
+    mut events: EventReader<TargetEvent>,
+    mut volumes: Query<&mut Volume>,
+    mut transform: Query<&mut Transform, With<Drone>>,
+) {
+    for event in events.read() {
+        let volume = volumes.get_mut(event.0).unwrap();
+        *transform.single_mut() = volume.target(); // XXX Relocate camera?
+    }
 }
