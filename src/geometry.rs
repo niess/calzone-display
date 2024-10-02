@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
+use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
 use bevy::render::primitives::Aabb;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
@@ -29,6 +30,12 @@ pub struct Volume {
     pub aabb: Aabb,
     pub expanded: bool,
 }
+
+#[derive(Component)]
+pub struct Plain;
+
+#[derive(Component)]
+pub struct Transparent;
 
 #[derive(Clone, Default, Resource)]
 enum Configuration {
@@ -62,7 +69,9 @@ impl GeometryPlugin{
 
 impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_geometry.in_set(GeometrySet));
+        app
+            .add_plugins(WireframePlugin)
+            .add_systems(Startup, setup_geometry.in_set(GeometrySet));
 
         // Promote the geometry data to a Resource.
         match &mut self.0.lock() {
@@ -79,7 +88,8 @@ impl Plugin for GeometryPlugin {
 fn setup_geometry(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut wireframe_materials: ResMut<Assets<WireframeMaterial>>,
     mut config: ResMut<Configuration>,
 ) {
     let config = std::mem::take(config.as_mut());
@@ -90,17 +100,29 @@ fn setup_geometry(
                 volumes: Vec<data::VolumeInfo>,
                 transform: GlobalTransform,
                 meshes: &mut Assets<Mesh>,
-                materials: &mut Assets<StandardMaterial>,
+                standard_materials: &mut Assets<StandardMaterial>,
+                wireframe_materials: &mut Assets<WireframeMaterial>,
             ) {
                 parent.with_children(|parent| {
                     for mut volume in volumes {
                         let volumes = std::mem::take(&mut volume.daughters);
                         let mut transform = transform.clone();
-                        let bundle = bundle::VolumeBundle::new(
-                            volume, &mut transform, meshes, materials
+                        let mut child = bundle::VolumeSpawner::new(
+                            volume,
+                            &mut transform,
+                            meshes,
+                            standard_materials,
+                            wireframe_materials,
+                        )
+                        .spawn_child(parent);
+                        spawn_them_all(
+                            &mut child,
+                            volumes,
+                            transform,
+                            meshes,
+                            standard_materials,
+                            wireframe_materials,
                         );
-                        let mut child = parent.spawn(bundle);
-                        spawn_them_all(&mut child, volumes, transform, meshes, materials);
                     }
                 });
             }
@@ -108,11 +130,22 @@ fn setup_geometry(
             let mut root = Arc::into_inner(root).unwrap();
             let volumes = std::mem::take(&mut root.daughters);
             let mut transform = GlobalTransform::IDENTITY;
-            let root = bundle::VolumeBundle::new(
-                root, &mut transform, &mut meshes, &mut materials
+            let mut root = bundle::VolumeSpawner::new(
+                root,
+                &mut transform,
+                &mut meshes,
+                &mut standard_materials,
+                &mut wireframe_materials
+            )
+            .spawn_root(&mut commands);
+            spawn_them_all(
+                &mut root,
+                volumes,
+                transform,
+                &mut meshes,
+                &mut standard_materials,
+                &mut wireframe_materials,
             );
-            let mut root = commands.spawn((root, RootVolume));
-            spawn_them_all(&mut root, volumes, transform, &mut meshes, &mut materials);
         },
         Configuration::Stl(path) => {
             let mesh = stl::load(path.as_str(), None)
@@ -127,7 +160,7 @@ fn setup_geometry(
             commands.spawn((
                 PbrBundle {
                     mesh: meshes.add(mesh),
-                    material: materials.add(StandardMaterial {
+                    material: standard_materials.add(StandardMaterial {
                         base_color: SADDLE_BROWN.into(),
                         cull_mode: None,
                         ..default()
