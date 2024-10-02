@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::color::palettes::css::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
@@ -55,22 +54,6 @@ fn spawn_drone(
                     ..default()
                 },
             ));
-            for x in [-1.0, 1.0] {
-                parent.spawn(SpotLightBundle {
-                    transform: Transform::from_xyz(x, 0.0, 0.0)
-                        .looking_at(Vec3::new(x, 0.0, -1.0), Vec3::Y),
-                    spot_light: SpotLight {
-                        intensity: light_consts::lux::DIRECT_SUNLIGHT,
-                        range: 300.0,
-                        color: ALICE_BLUE.into(),
-                        shadows_enabled: true,
-                        inner_angle: PI / 6.0,
-                        outer_angle: PI / 3.0,
-                        ..default()
-                    },
-                    ..default()
-                });
-            }
         });
 }
 
