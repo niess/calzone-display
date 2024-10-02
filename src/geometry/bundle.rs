@@ -7,7 +7,6 @@ use bevy::render::primitives::Aabb;
 use super::data::VolumeInfo;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
-use super::units::Meters;
 
 
 pub enum VolumeSpawner {
@@ -86,12 +85,7 @@ where
     ) -> Self {
         let mesh = Mesh::from(volume.solid);
         let material = Named::<T>::get_material(volume.material, materials);
-        let transform = Transform::from_xyz(
-            volume.transform.translation[0].meters(),
-            volume.transform.translation[1].meters(),
-            volume.transform.translation[2].meters(),
-        );
-        // XXX Apply rotation as well.
+        let transform = volume.transform.to_transform();
         *global_transform = global_transform.mul_transform(transform);
         let aabb = compute_aabb(&mesh, global_transform);
         let mesh = meshes.add(mesh);

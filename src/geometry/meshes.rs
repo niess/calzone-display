@@ -78,7 +78,7 @@ impl From<TessellationInfo> for Mesh {
 
 impl From<TubsInfo> for Mesh {
     fn from(value: TubsInfo) -> Self {
-        if value.inner_radius == 0.0 {
+        let mut mesh = if value.inner_radius == 0.0 {
             if value.delta_phi >= std::f64::consts::PI {
                 let mut mesh = Cylinder::new(
                     value.outer_radius.meters(),
@@ -94,7 +94,11 @@ impl From<TubsInfo> for Mesh {
             }
         } else {
             unimplemented!()
-        }
+        };
+
+        let quat = Quat::from_axis_angle(Vec3::X, -90.0_f32.to_radians());
+        mesh.rotate_by(quat);
+        mesh
     }
 }
 

@@ -1,8 +1,11 @@
+use bevy::prelude::*;
+use bevy::render::render_resource::encase::matrix::FromMatrixParts;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyBytes;
 use rmp_serde::Deserializer;
 use serde::Deserialize;
+use super::units::Meters;
 
 
 #[derive(Deserialize)]
@@ -81,5 +84,21 @@ impl VolumeInfo {
                 let msg = format!("{}", err);
                 PyTypeError::new_err(msg)
             })
+    }
+}
+
+impl TransformInfo {
+    pub fn to_transform(&self) -> Transform {
+        let rotation: [[f32; 3]; 3] = std::array::from_fn(|i| 
+            std::array::from_fn(|j| self.rotation[i][j] as f32)
+        );
+        let rotation = Mat3::from_parts(rotation);
+        let rotation = Quat::from_mat3(&rotation);
+        let translation: [f32; 3] = std::array::from_fn(|i|
+            self.translation[i].meters()
+        );
+        let translation: Vec3 = translation.into();
+        Transform::from_rotation(rotation)
+            .with_translation(translation)
     }
 }
