@@ -129,6 +129,7 @@ fn setup_geometry(
                     mesh: meshes.add(mesh),
                     material: materials.add(StandardMaterial {
                         base_color: SADDLE_BROWN.into(),
+                        cull_mode: None,
                         ..default()
                     }),
                     ..default()

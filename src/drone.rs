@@ -15,7 +15,7 @@ impl Plugin for DronePlugin {
             .add_systems(Startup, spawn_drone.after(GeometrySet))
             .add_systems(Update, (
                 on_mouse,
-                on_keybord,
+                on_keyboard,
                 on_target,
             ));
     }
@@ -86,7 +86,7 @@ fn on_mouse(
     }
 }
 
-fn on_keybord(
+fn on_keyboard(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut ExternalForce), With<Drone>>,
 ) {
