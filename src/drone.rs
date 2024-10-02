@@ -22,7 +22,9 @@ impl Plugin for DronePlugin {
 }
 
 #[derive(Component)]
-pub struct Drone;
+pub struct Drone {
+    velocity: f32,
+}
 
 fn spawn_drone(
     mut commands: Commands,
@@ -30,7 +32,7 @@ fn spawn_drone(
 ) {
     let root = query.single();
     commands
-        .spawn(Drone)
+        .spawn(Drone::default())
         .insert(SpatialBundle {
             transform: root.target(),
             ..default()
@@ -84,9 +86,9 @@ fn on_mouse(
 
 fn on_keyboard(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut Velocity), With<Drone>>,
+    mut query: Query<(&mut Transform, &mut Velocity, &mut Drone)>,
 ) {
-    let (transform, mut velocity) = query.single_mut();
+    let (transform, mut velocity, mut drone) = query.single_mut();
 
     let mut direction = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
@@ -107,9 +109,14 @@ fn on_keyboard(
     if keyboard_input.pressed(KeyCode::KeyQ) {
         direction += *transform.down();
     }
+    if keyboard_input.pressed(KeyCode::NumpadAdd) {
+        drone.velocity = (drone.velocity * 1.05).max(Drone::VELOCITY_MAX);
+    }
+    if keyboard_input.pressed(KeyCode::NumpadSubtract) {
+        drone.velocity = (drone.velocity * 0.95).max(Drone::VELOCITY_MIN);
+    }
 
-    const STRENGTH: f32 = 1.0;
-    velocity.linvel = STRENGTH * direction;
+    velocity.linvel = drone.velocity * direction;
 }
 
 fn on_target(
@@ -125,5 +132,16 @@ fn on_target(
         if magnitude != 0.0 {
             velocity.linvel = magnitude * transform.forward();
         }
+    }
+}
+
+impl Drone {
+    const VELOCITY_MIN: f32 = 0.1;
+    const VELOCITY_MAX: f32 = 100.0;
+}
+
+impl Default for Drone {
+    fn default() -> Self {
+        Self { velocity: 1.0 }
     }
 }
