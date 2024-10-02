@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::PI;
 use super::geometry::{GeometrySet, RootVolume, Volume};
@@ -14,7 +14,8 @@ impl Plugin for DronePlugin {
         app
             .add_systems(Startup, spawn_drone.after(GeometrySet))
             .add_systems(Update, (
-                on_mouse,
+                on_mouse_motion,
+                on_mouse_wheel,
                 on_keyboard,
                 on_target,
             ));
@@ -25,6 +26,9 @@ impl Plugin for DronePlugin {
 pub struct Drone {
     velocity: f32,
 }
+
+#[derive(Component)]
+struct DroneCamera;
 
 fn spawn_drone(
     mut commands: Commands,
@@ -41,13 +45,16 @@ fn spawn_drone(
         .insert(AdditionalMassProperties::Mass(1.0))
         .insert(Velocity::default())
         .with_children(|parent| {
-            parent.spawn(Camera3dBundle {
-                projection: PerspectiveProjection {
-                    fov: 70.0_f32.to_radians(),
+            parent.spawn((
+                DroneCamera,
+                Camera3dBundle {
+                    projection: PerspectiveProjection {
+                        fov: 70.0_f32.to_radians(),
+                        ..default()
+                    }.into(),
                     ..default()
-                }.into(),
-                ..default()
-            });
+                },
+            ));
             for x in [-1.0, 1.0] {
                 parent.spawn(SpotLightBundle {
                     transform: Transform::from_xyz(x, 0.0, 0.0)
@@ -67,12 +74,12 @@ fn spawn_drone(
         });
 }
 
-fn on_mouse(
-    mut mouse_motion: EventReader<MouseMotion>,
+fn on_mouse_motion(
+    mut motions: EventReader<MouseMotion>,
     mut query: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
     let (mut transform, mut velocity) = query.single_mut();
-    for motion in mouse_motion.read() {
+    for motion in motions.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
         transform.rotate_z(yaw);
@@ -81,6 +88,20 @@ fn on_mouse(
     let magnitude = velocity.linvel.length();
     if magnitude != 0.0 {
         velocity.linvel = magnitude * transform.forward();
+    }
+}
+
+fn on_mouse_wheel(
+    mut wheels: EventReader<MouseWheel>,
+    mut camera: Query<&mut Projection, With<DroneCamera>>,
+) {
+    if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
+        let mut scroll = 0.0;
+        for wheel in wheels.read() {
+            scroll += wheel.y;
+        }
+        perspective.fov = (perspective.fov - 0.05 * scroll)
+            .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
     }
 }
 
@@ -110,7 +131,7 @@ fn on_keyboard(
         direction += *transform.down();
     }
     if keyboard_input.pressed(KeyCode::NumpadAdd) {
-        drone.velocity = (drone.velocity * 1.05).max(Drone::VELOCITY_MAX);
+        drone.velocity = (drone.velocity * 1.05).min(Drone::VELOCITY_MAX);
     }
     if keyboard_input.pressed(KeyCode::NumpadSubtract) {
         drone.velocity = (drone.velocity * 0.95).max(Drone::VELOCITY_MIN);
@@ -136,6 +157,9 @@ fn on_target(
 }
 
 impl Drone {
+    const FOV_MIN: f32 = PI / 10.0;
+    const FOV_MAX: f32 = 2.0 * PI / 3.0;
+
     const VELOCITY_MIN: f32 = 0.1;
     const VELOCITY_MAX: f32 = 100.0;
 }
