@@ -1,11 +1,11 @@
 use bevy::prelude::*;
-use bevy::color::palettes::css::*;
 use super::geometry::GeometrySet;
 
 mod geometry;
-mod lighting;
+mod nord;
 
 pub use geometry::TargetEvent;
+pub use nord::NORD;
 
 
 pub struct UiPlugin;
@@ -14,7 +14,6 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_ui.after(GeometrySet));
         geometry::build(app);
-        lighting::build(app);
     }
 }
 
@@ -55,12 +54,13 @@ impl UiMenu {
                     height: Val::Auto,
                     display: Display::Flex,
                     flex_direction: FlexDirection::Column,
-                    border: UiRect::all(Val::Px(1.0)),
+                    border: UiRect::all(Val::Px(2.0)),
                     padding: UiRect::all(Val::Px(4.0)),
                     ..default()
                 },
-                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
-                border_color: RED.into(),
+                background_color: NORD[1].into(),
+                border_color: NORD[2].into(),
+                border_radius: BorderRadius::all(Val::Px(4.0)),
                 ..default()
             },
         )).id();
@@ -74,9 +74,9 @@ impl UiMenu {
 struct UiText;
 
 impl UiText {
-    const NORMAL: Color = Color::srgb(1.0, 1.0, 1.0);
-    const HOVERED: Color = Color::srgb(1.0, 1.0, 0.3);
-    const PRESSED: Color = Color::srgb(0.3, 0.3, 0.3);
+    const NORMAL: Srgba = NORD[4];
+    const HOVERED: Srgba = NORD[7];
+    const PRESSED: Srgba = NORD[1];
 
     fn new_bundle(message: &str) -> TextBundle {
         TextBundle::from_section(
