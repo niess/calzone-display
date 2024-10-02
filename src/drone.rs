@@ -59,8 +59,13 @@ fn spawn_drone(
 
 fn on_mouse_motion(
     mut motions: EventReader<MouseMotion>,
+    buttons: Res<ButtonInput<MouseButton>>,
     mut query: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
+    if !buttons.pressed(MouseButton::Right) {
+        return
+    }
+
     let (mut transform, mut velocity) = query.single_mut();
     for motion in motions.read() {
         let yaw = -motion.delta.x * 0.003;
@@ -107,16 +112,16 @@ fn on_keyboard(
     if keyboard_input.pressed(KeyCode::KeyD) {
         direction += *transform.right();
     }
-    if keyboard_input.pressed(KeyCode::KeyE) {
+    if keyboard_input.pressed(KeyCode::Space) {
         direction += *transform.up();
     }
-    if keyboard_input.pressed(KeyCode::KeyQ) {
+    if keyboard_input.pressed(KeyCode::KeyC) {
         direction += *transform.down();
     }
-    if keyboard_input.pressed(KeyCode::NumpadAdd) {
+    if keyboard_input.pressed(KeyCode::KeyE) {
         drone.velocity = (drone.velocity * 1.05).min(Drone::VELOCITY_MAX);
     }
-    if keyboard_input.pressed(KeyCode::NumpadSubtract) {
+    if keyboard_input.pressed(KeyCode::KeyQ) {
         drone.velocity = (drone.velocity * 0.95).max(Drone::VELOCITY_MIN);
     }
 
@@ -143,8 +148,8 @@ impl Drone {
     const FOV_MIN: f32 = PI / 10.0;
     const FOV_MAX: f32 = 2.0 * PI / 3.0;
 
-    const VELOCITY_MIN: f32 = 0.1;
-    const VELOCITY_MAX: f32 = 100.0;
+    const VELOCITY_MIN: f32 = 0.01;
+    const VELOCITY_MAX: f32 = 1000.0;
 }
 
 impl Default for Drone {
