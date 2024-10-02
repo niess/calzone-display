@@ -27,7 +27,7 @@ fn run(py: Python, path: &str) -> PyResult<()> {
 }
 
 fn setup_physics(mut config: ResMut<RapierConfiguration>) {
-    config.gravity = Vect::ZERO;
+    config.gravity = 9.81 * Vect::NEG_Z;
 }
 
 

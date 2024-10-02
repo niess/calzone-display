@@ -35,13 +35,9 @@ fn spawn_drone(
             transform: root.target(),
             ..default()
         })
-        .insert(RigidBody::Dynamic)
+        .insert(RigidBody::KinematicVelocityBased)
         .insert(AdditionalMassProperties::Mass(1.0))
-        .insert(ExternalForce::default())
-        .insert(Damping {
-            linear_damping: 1.0,
-            angular_damping: 0.0,
-        })
+        .insert(Velocity::default())
         .with_children(|parent| {
             parent.spawn(Camera3dBundle {
                 projection: PerspectiveProjection {
@@ -71,58 +67,63 @@ fn spawn_drone(
 
 fn on_mouse(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut query: Query<(&mut Transform, &mut ExternalForce), With<Drone>>,
+    mut query: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
-    let (mut transform, mut external_force) = query.single_mut();
+    let (mut transform, mut velocity) = query.single_mut();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
         transform.rotate_z(yaw);
         transform.rotate_local_x(pitch);
     }
-    let force = external_force.force.length();
-    if force != 0.0 {
-        external_force.force = force * -transform.local_z();
+    let magnitude = velocity.linvel.length();
+    if magnitude != 0.0 {
+        velocity.linvel = magnitude * transform.forward();
     }
 }
 
 fn on_keyboard(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut ExternalForce), With<Drone>>,
+    mut query: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
-    let (transform, mut external_force) = query.single_mut();
+    let (transform, mut velocity) = query.single_mut();
 
-    let mut force = Vec3::ZERO;
+    let mut direction = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
-        force -= *transform.local_z();
+        direction += *transform.forward();
     }
     if keyboard_input.pressed(KeyCode::KeyS) {
-        force += *transform.local_z();
+        direction += *transform.back();
     }
     if keyboard_input.pressed(KeyCode::KeyA) {
-        force -= *transform.local_x();
+        direction += *transform.left();
     }
     if keyboard_input.pressed(KeyCode::KeyD) {
-        force += *transform.local_x();
+        direction += *transform.right();
     }
     if keyboard_input.pressed(KeyCode::KeyE) {
-        force += *transform.local_y();
+        direction += *transform.up();
     }
     if keyboard_input.pressed(KeyCode::KeyQ) {
-        force -= *transform.local_y();
+        direction += *transform.down();
     }
 
-    const STRENGTH: f32 = 50.0;
-    external_force.force = STRENGTH * force;
+    const STRENGTH: f32 = 1.0;
+    velocity.linvel = STRENGTH * direction;
 }
 
 fn on_target(
     mut events: EventReader<TargetEvent>,
     mut volumes: Query<&mut Volume>,
-    mut transform: Query<&mut Transform, With<Drone>>,
+    mut transform: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
     for event in events.read() {
         let volume = volumes.get_mut(event.0).unwrap();
-        *transform.single_mut() = volume.target(); // XXX Relocate camera?
+        let (mut transform, mut velocity) = transform.single_mut();
+        *transform = volume.target();
+        let magnitude = velocity.linvel.length();
+        if magnitude != 0.0 {
+            velocity.linvel = magnitude * transform.forward();
+        }
     }
 }
