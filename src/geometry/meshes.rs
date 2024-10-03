@@ -96,8 +96,14 @@ impl From<TubsInfo> for Mesh {
             unimplemented!()
         };
 
-        let quat = Quat::from_axis_angle(Vec3::X, -90.0_f32.to_radians());
-        mesh.rotate_by(quat);
+        for (_, values) in mesh.attributes_mut() {
+            if let VertexAttributeValues::Float32x3(values) = values {
+                for v in values.iter_mut() {
+                    v.swap(1, 2);
+                }
+            }
+        }
+
         mesh
     }
 }
