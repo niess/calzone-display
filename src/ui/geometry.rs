@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use crate::geometry::{Volume, RootVolume};
-use super::{setup_ui, UiMenu, UiText};
+use crate::geometry::{GeometrySet, RootVolume, Volume};
+use super::{UiText, UiWindow, WindowLocation};
 
 
 #[derive(Event)]
@@ -10,7 +10,7 @@ pub fn build(app: &mut App) {
     app
         .add_event::<TargetEvent>()
         .add_event::<UpdateEvent>()
-        .add_systems(Startup, setup_menu.after(setup_ui))
+        .add_systems(Startup, setup_window.after(GeometrySet))
         .add_systems(Update, (
             on_button,
             on_update.after(on_button)
@@ -18,22 +18,31 @@ pub fn build(app: &mut App) {
 }
 
 #[derive(Component)]
-struct VolumeMenu;
+struct VolumeContent;
 
-pub fn setup_menu(
+pub fn setup_window(
     mut commands: Commands,
-    ui: Query<Entity, With<UiMenu>>,
     root: Query<Entity, With<RootVolume>>,
     children: Query<&Children, With<Volume>>,
     volumes: Query<&Volume>,
 ) {
-    let menu = UiMenu::add_column(
-        VolumeMenu,
-        &mut commands,
-        ui
-    );
-    update_ui(
-        menu,
+    let content = commands.spawn((
+        VolumeContent,
+        NodeBundle {
+            style: Style {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        },
+    )).id();
+
+    let mut window = UiWindow::new("Volumes", WindowLocation::TopLeft, &mut commands);
+    window.add_child(content);
+
+    update_window(
+        content,
         &mut commands,
         &root,
         &children,
@@ -75,7 +84,7 @@ fn on_button(
 fn on_update(
     mut commands: Commands,
     mut events: EventReader<UpdateEvent>,
-    menu: Query<Entity, With<VolumeMenu>>,
+    menu: Query<Entity, With<VolumeContent>>,
     root: Query<Entity, With<RootVolume>>,
     children: Query<&Children, With<Volume>>,
     mut volumes: Query<&mut Volume>,
@@ -83,7 +92,7 @@ fn on_update(
     for event in events.read() {
         let mut volume = volumes.get_mut(event.0).unwrap();
         volume.expanded = !volume.expanded;
-        update_ui(
+        update_window(
             menu.single(),
             &mut commands,
             &root,
@@ -93,8 +102,8 @@ fn on_update(
     }
 }
 
-fn update_ui(
-    menu: Entity,
+fn update_window(
+    content: Entity,
     commands: &mut Commands,
     root: &Query<Entity, With<RootVolume>>,
     children: &Query<&Children, With<Volume>>,
@@ -103,7 +112,7 @@ fn update_ui(
     fn add_button(
         depth: usize,
         entity: Entity,
-        menu: Entity,
+        content: Entity,
         commands: &mut Commands,
         children: &Query<&Children, With<Volume>>,
         volumes: &Query<&Volume>,
@@ -118,24 +127,24 @@ fn update_ui(
         let label = format!("{}{}{}", "  ".repeat(depth), volume.name, qualifier);
         let button = VolumeButton::spawn_button(label.as_str(), entity, commands);
         commands
-            .entity(menu)
+            .entity(content)
             .add_child(button);
         if volume.expanded {
             if let Some(childs) = childs {
                 for child in childs {
-                    add_button(depth + 1, *child, menu, commands, children, volumes);
+                    add_button(depth + 1, *child, content, commands, children, volumes);
                 }
             }
         }
     }
 
-    clear_ui(menu, commands);
-    add_button(0, root.single(), menu, commands, children, volumes);
+    clear_window(content, commands);
+    add_button(0, root.single(), content, commands, children, volumes);
 }
 
-fn clear_ui(menu: Entity, commands: &mut Commands) {
-    let mut menu = commands.entity(menu);
-    menu.despawn_descendants();
+fn clear_window(content: Entity, commands: &mut Commands) {
+    let mut content = commands.entity(content);
+    content.despawn_descendants();
 }
 
 #[derive(Component)]

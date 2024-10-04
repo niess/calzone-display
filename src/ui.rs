@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::geometry::GeometrySet;
+use bevy::ecs::system::EntityCommands;
 
 mod geometry;
 mod meters;
@@ -14,60 +14,79 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_ui.after(GeometrySet));
         geometry::build(app);
     }
 }
 
-#[derive(Component)]
-struct UiMenu;
+struct UiWindow;
 
-fn setup_ui(mut commands: Commands) {
-    commands.spawn((
-        UiMenu,
-        NodeBundle {
-            style: Style {
-                display: Display::Flex,
-                flex_direction: FlexDirection::Row,
-                padding: UiRect::all(Val::Px(4.0)),
-                ..default()
-            },
-            ..default()
-        },
-    ));
+#[allow(dead_code)]
+enum WindowLocation {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
 }
 
-impl UiMenu {
-    fn add_column<T>(
-        component: T,
-        commands: &mut Commands,
-        ui: Query<Entity, With<Self>>,
-    ) -> Entity
-    where
-        T: Component,
-    {
-        let column = commands.spawn((
-            component,
-            NodeBundle {
-                style: Style {
-                    width: Val::Auto,
-                    height: Val::Auto,
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    border: UiRect::all(Val::Px(2.0)),
-                    padding: UiRect::all(Val::Px(4.0)),
+impl UiWindow {
+    fn new<'a>(
+        title: &str,
+        location: WindowLocation,
+        commands: &'a mut Commands
+    ) -> EntityCommands<'a> {
+        let title = commands.spawn(
+            TextBundle::from_section(
+                title,
+                TextStyle {
+                    font_size: 18.0,
+                    color: NORD[6].into(),
                     ..default()
-                },
-                background_color: NORD[1].into(),
-                border_color: NORD[2].into(),
-                border_radius: BorderRadius::all(Val::Px(4.0)),
+                }
+            )
+        ).id();
+
+        let mut capsule = commands.spawn(NodeBundle {
+            style: Style {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_self: AlignSelf::Stretch,
+                align_items: AlignItems::Center,
+                justify_items: JustifyItems::Center,
+                padding: UiRect::new(Val::ZERO, Val::ZERO, Val::Px(3.0), Val::Px(5.0)),
                 ..default()
             },
-        )).id();
-        commands
-            .entity(ui.single())
-            .add_child(column);
-        column
+            background_color: NORD[2].into(),
+            ..default()
+        });
+        capsule.add_child(title);
+        let capsule = capsule.id();
+
+        let (top, left, bottom, right) = match location {
+            WindowLocation::TopLeft => (Val::Px(5.0), Val::Px(5.0), Val::Auto, Val::Auto),
+            WindowLocation::TopRight => (Val::Px(5.0), Val::Auto, Val::Auto, Val::Px(5.0)),
+            WindowLocation::BottomLeft => (Val::Auto, Val::Px(5.0), Val::Px(5.0), Val::Auto),
+            WindowLocation::BottomRight => (Val::Auto, Val::Auto, Val::Px(5.0), Val::Px(5.0)),
+        };
+
+        let mut window = commands.spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                top,
+                left,
+                bottom,
+                right,
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            background_color: NORD[1].into(),
+            border_color: NORD[2].into(),
+            border_radius: BorderRadius::all(Val::Px(4.0)),
+            ..default()
+        });
+        window.add_child(capsule);
+        window
     }
 }
 

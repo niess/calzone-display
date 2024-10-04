@@ -49,6 +49,7 @@ enum Configuration {
 
 impl GeometryPlugin{
     pub fn new(py: Python, file: &str) -> PyResult<Self> {
+        // XXX Manage pathlib.Path input, or calzone.volume.
         let path = Path::new(file);
         let config = match path.extension().and_then(OsStr::to_str) {
             Some("json") | Some("toml") | Some("yml") | Some("yaml") => {

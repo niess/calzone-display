@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
-use super::nord::NORD;
 
 
 pub struct Meters {
@@ -12,21 +11,20 @@ pub struct Meters {
     speed: Meter,
 }
 
-#[derive(Component)]
-struct MetersPanel;
-
 impl Meters {
     pub fn new(commands: &mut Commands) -> Self {
         fn spawn_column<'a>(commands: &'a mut Commands) -> EntityCommands<'a> {
-            commands.spawn(NodeBundle {
-                style: Style {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(Val::Px(4.0)),
+            commands.spawn(
+                NodeBundle {
+                    style: Style {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
+                        padding: UiRect::all(Val::Px(4.0)),
+                        ..default()
+                    },
                     ..default()
-                },
-                ..default()
-            })
+                }
+            )
         }
 
         let x = commands.spawn(super::UiText::new_bundle("easting")).id();
@@ -52,27 +50,21 @@ impl Meters {
                                 speed.entity ]);
         let values = values.id();
 
-        let mut panel = commands.spawn((
-            MetersPanel,
+        let mut content = commands.spawn(
             NodeBundle {
                 style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(5.0),
-                    right: Val::Px(5.0),
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
-                    border: UiRect::all(Val::Px(2.0)),
-                    padding: UiRect::all(Val::Px(4.0)),
                     ..default()
                 },
-                background_color: NORD[1].into(),
-                border_color: NORD[2].into(),
-                border_radius: BorderRadius::all(Val::Px(4.0)),
                 ..default()
             },
-        ));
-        panel.add_child(labels);
-        panel.add_child(values);
+        );
+        content.push_children(&[labels, values]);
+        let content = content.id();
+
+        let mut window = super::UiWindow::new("Drone", super::WindowLocation::TopRight, commands);
+        window.add_child(content);
 
         Self { x, y, z, azimuth, elevation, speed }
     }
