@@ -5,8 +5,16 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::types::PyBytes;
 use rmp_serde::Deserializer;
 use serde::Deserialize;
+use std::collections::HashMap;
+use super::jmol::JMOL;
 use super::units::Meters;
 
+
+#[derive(Deserialize)]
+pub struct GeometryInfo {
+    pub volumes: VolumeInfo,
+    pub materials: HashMap<String, MaterialInfo>,
+}
 
 #[derive(Deserialize)]
 pub struct VolumeInfo {
@@ -68,7 +76,15 @@ pub struct TubsInfo {
     pub displacement: [f64; 3],
 }
 
-impl VolumeInfo {
+
+#[derive(Deserialize)]
+pub struct MaterialInfo {
+    pub density: f64,
+    pub state: String,
+    pub composition: Vec<(String, f64)>,
+}
+
+impl GeometryInfo {
     pub fn new(py: Python, path: &str) -> PyResult<Self> {
         let bytes = py.import_bound("calzone")
             .and_then(|x| x.getattr("Geometry"))
@@ -100,5 +116,20 @@ impl TransformInfo {
         let translation: Vec3 = translation.into();
         Transform::from_rotation(rotation)
             .with_translation(translation)
+    }
+}
+
+impl MaterialInfo {
+    pub fn color(&self) -> Srgba {
+        let mut color = [0.0_f32; 3];
+        for (symbol, weight) in self.composition.iter() {
+            let rgb = JMOL.get(symbol.as_str())
+                .unwrap_or_else(|| &Srgba::WHITE);
+            let weight = *weight as f32;
+            color[0] += weight * rgb.red;
+            color[1] += weight * rgb.green;
+            color[2] += weight * rgb.blue;
+        }
+        Srgba::new(color[0], color[1], color[2], 1.0)
     }
 }

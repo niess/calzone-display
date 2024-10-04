@@ -5,12 +5,14 @@ use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
 use bevy::render::primitives::Aabb;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 mod bundle;
 mod data;
+mod jmol;
 mod meshes;
 mod stl;
 mod units;
@@ -39,7 +41,7 @@ pub struct Transparent;
 
 #[derive(Clone, Default, Resource)]
 enum Configuration {
-    Data(Arc<data::VolumeInfo>),
+    Data(Arc<data::GeometryInfo>),
     Stl(String),
     #[default]
     None,
@@ -50,7 +52,7 @@ impl GeometryPlugin{
         let path = Path::new(file);
         let config = match path.extension().and_then(OsStr::to_str) {
             Some("json") | Some("toml") | Some("yml") | Some("yaml") => {
-                let data = data::VolumeInfo::new(py, file)?;
+                let data = data::GeometryInfo::new(py, file)?;
                 Configuration::Data(Arc::new(data))
             },
             Some("stl") => {
@@ -94,10 +96,11 @@ fn setup_geometry(
 ) {
     let config = std::mem::take(config.as_mut());
     match config {
-        Configuration::Data(root) => {
+        Configuration::Data(geometry) => {
             fn spawn_them_all( // recursively.
                 parent: &mut EntityCommands,
                 volumes: Vec<data::VolumeInfo>,
+                materials_info: &HashMap<String, data::MaterialInfo>,
                 transform: GlobalTransform,
                 meshes: &mut Assets<Mesh>,
                 standard_materials: &mut Assets<StandardMaterial>,
@@ -109,6 +112,7 @@ fn setup_geometry(
                         let mut transform = transform.clone();
                         let mut child = bundle::VolumeSpawner::new(
                             volume,
+                            materials_info,
                             &mut transform,
                             meshes,
                             standard_materials,
@@ -118,6 +122,7 @@ fn setup_geometry(
                         spawn_them_all(
                             &mut child,
                             volumes,
+                            materials_info,
                             transform,
                             meshes,
                             standard_materials,
@@ -127,11 +132,12 @@ fn setup_geometry(
                 });
             }
 
-            let mut root = Arc::into_inner(root).unwrap();
-            let volumes = std::mem::take(&mut root.daughters);
+            let mut geometry = Arc::into_inner(geometry).unwrap();
+            let volumes = std::mem::take(&mut geometry.volumes.daughters);
             let mut transform = GlobalTransform::IDENTITY;
             let mut root = bundle::VolumeSpawner::new(
-                root,
+                geometry.volumes,
+                &geometry.materials,
                 &mut transform,
                 &mut meshes,
                 &mut standard_materials,
@@ -141,6 +147,7 @@ fn setup_geometry(
             spawn_them_all(
                 &mut root,
                 volumes,
+                &geometry.materials,
                 transform,
                 &mut meshes,
                 &mut standard_materials,

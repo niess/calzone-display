@@ -1,10 +1,9 @@
 use bevy::prelude::*;
-use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
 use bevy::pbr::wireframe::WireframeMaterial;
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::primitives::Aabb;
-use super::data::VolumeInfo;
+use super::data::{MaterialInfo, VolumeInfo};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -17,30 +16,31 @@ pub enum VolumeSpawner {
 impl VolumeSpawner {
     pub fn new(
         volume: VolumeInfo,
+        materials: &HashMap<String, MaterialInfo>,
         global_transform: &mut GlobalTransform,
         meshes: &mut Assets<Mesh>,
         standards: &mut Assets<StandardMaterial>,
         wireframes: &mut Assets<WireframeMaterial>,
     ) -> Self {
-        match volume.material.as_str() {
-            "G4_AIR" | "AIR" | "Air" | "air" => {
-                let bundle = VolumeBundle::<WireframeMaterial>::new(
-                    volume,
-                    global_transform,
-                    meshes,
-                    wireframes,
-                );
-                Self::Wireframe(bundle)
-            },
-            _ => {
-                let bundle = VolumeBundle::<StandardMaterial>::new(
-                    volume,
-                    global_transform,
-                    meshes,
-                    standards,
-                );
-                Self::Standard(bundle)
-            },
+        let material = materials.get(volume.material.as_str()).unwrap();
+        if (material.state.as_str() == "gas") || (material.density <= 1E-02) {
+            let bundle = VolumeBundle::<WireframeMaterial>::new(
+                volume,
+                material,
+                global_transform,
+                meshes,
+                wireframes,
+            );
+            Self::Wireframe(bundle)
+        } else {
+            let bundle = VolumeBundle::<StandardMaterial>::new(
+                volume,
+                material,
+                global_transform,
+                meshes,
+                standards,
+            );
+            Self::Standard(bundle)
         }
     }
 
@@ -79,12 +79,13 @@ where
 {
     pub fn new(
         volume: VolumeInfo,
+        material: &MaterialInfo,
         global_transform: &mut GlobalTransform,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<T>,
     ) -> Self {
         let mesh = Mesh::from(volume.solid);
-        let material = Named::<T>::get_material(volume.material, materials);
+        let material = Named::<T>::get_material(volume.material, material, materials);
         let transform = volume.transform.to_transform();
         *global_transform = global_transform.mul_transform(transform);
         let aabb = compute_aabb(&mesh, global_transform);
@@ -129,6 +130,7 @@ where
 
     fn get_material(
         name: String,
+        info: &MaterialInfo,
         materials: &mut Assets<Self::Material>
     ) -> Handle<Self::Material>;
 }
@@ -141,13 +143,14 @@ impl GetMaterial for Named<StandardMaterial> {
 
     fn get_material(
         name: String,
+        info: &MaterialInfo,
         materials: &mut Assets<Self::Material>
     ) -> Handle<Self::Material> {
         STANDARD_MATERIALS.lock().unwrap().0
             .entry(name)
             .or_insert_with(|| {
                 materials.add(StandardMaterial {
-                    base_color: WHITE.into(),
+                    base_color: info.color().into(),
                     cull_mode: None,
                     ..default()
                 })
@@ -163,13 +166,14 @@ impl GetMaterial for Named<WireframeMaterial> {
 
     fn get_material(
         name: String,
+        info: &MaterialInfo,
         materials: &mut Assets<Self::Material>
     ) -> Handle<Self::Material> {
         WIREFRAME_MATERIALS.lock().unwrap().0
             .entry(name)
             .or_insert_with(|| {
                 materials.add(WireframeMaterial {
-                    color: WHITE.into()
+                    color: info.color().into()
                 })
             }).clone()
     }
