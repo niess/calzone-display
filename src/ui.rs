@@ -2,9 +2,11 @@ use bevy::prelude::*;
 use super::geometry::GeometrySet;
 
 mod geometry;
+mod meter;
 mod nord;
 
 pub use geometry::TargetEvent;
+pub use meter::Meters;
 pub use nord::NORD;
 
 
@@ -25,8 +27,6 @@ fn setup_ui(mut commands: Commands) {
         UiMenu,
         NodeBundle {
             style: Style {
-                width: Val::Auto,
-                height: Val::Auto,
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 padding: UiRect::all(Val::Px(4.0)),

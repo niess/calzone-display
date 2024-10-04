@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy_rapier3d::prelude::*;
+use crate::geometry::{GeometrySet, RootVolume, Volume};
+use crate::ui::{Meters, TargetEvent};
 use std::f32::consts::PI;
-use super::geometry::{GeometrySet, RootVolume, Volume};
-use super::ui::TargetEvent;
 
 
 pub struct DronePlugin;
@@ -24,6 +24,7 @@ impl Plugin for DronePlugin {
 #[derive(Component)]
 pub struct Drone {
     velocity: f32,
+    meters: Meters,
 }
 
 #[derive(Component)]
@@ -33,9 +34,10 @@ fn spawn_drone(
     mut commands: Commands,
     query: Query<&Volume, With<RootVolume>>,
 ) {
+    let drone = Drone::new(&mut commands);
     let root = query.single();
     commands
-        .spawn(Drone::default())
+        .spawn(drone)
         .insert(SpatialBundle {
             transform: root.target(),
             ..default()
@@ -96,6 +98,7 @@ fn on_mouse_wheel(
 fn on_keyboard(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut Velocity, &mut Drone)>,
+    mut commands: Commands,
 ) {
     let (transform, mut velocity, mut drone) = query.single_mut();
 
@@ -120,9 +123,11 @@ fn on_keyboard(
     }
     if keyboard_input.pressed(KeyCode::KeyE) {
         drone.velocity = (drone.velocity * 1.05).min(Drone::VELOCITY_MAX);
+        drone.meters.update_speed(drone.velocity, &mut commands);
     }
     if keyboard_input.pressed(KeyCode::KeyQ) {
         drone.velocity = (drone.velocity * 0.95).max(Drone::VELOCITY_MIN);
+        drone.meters.update_speed(drone.velocity, &mut commands);
     }
 
     velocity.linvel = drone.velocity * direction;
@@ -145,15 +150,15 @@ fn on_target(
 }
 
 impl Drone {
-    const FOV_MIN: f32 = PI / 10.0;
-    const FOV_MAX: f32 = 2.0 * PI / 3.0;
+    const FOV_MIN: f32 = PI / 40.0;
+    const FOV_MAX: f32 = PI / 2.0;
 
     const VELOCITY_MIN: f32 = 0.01;
     const VELOCITY_MAX: f32 = 1000.0;
-}
 
-impl Default for Drone {
-    fn default() -> Self {
-        Self { velocity: 1.0 }
+    fn new(commands: &mut Commands) -> Self {
+        let velocity = 1.0;
+        let meters = Meters::new(commands);
+        Self { velocity, meters }
     }
 }
