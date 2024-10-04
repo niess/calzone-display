@@ -7,6 +7,8 @@ pub struct Meters {
     x: Meter,
     y: Meter,
     z: Meter,
+    azimuth: Meter,
+    elevation: Meter,
     speed: Meter,
 }
 
@@ -27,22 +29,27 @@ impl Meters {
             })
         }
 
-        let x = commands.spawn(super::UiText::new_bundle("X")).id();
-        let y = commands.spawn(super::UiText::new_bundle("Y")).id();
-        let z = commands.spawn(super::UiText::new_bundle("Z")).id();
+        let x = commands.spawn(super::UiText::new_bundle("easting")).id();
+        let y = commands.spawn(super::UiText::new_bundle("northing")).id();
+        let z = commands.spawn(super::UiText::new_bundle("upward")).id();
+        let azimuth = commands.spawn(super::UiText::new_bundle("azimuth")).id();
+        let elevation = commands.spawn(super::UiText::new_bundle("elevation")).id();
         let speed = commands.spawn(super::UiText::new_bundle("speed")).id();
 
         let mut labels = spawn_column(commands);
-        labels.push_children(&[x, y, z, speed]);
+        labels.push_children(&[x, y, z, azimuth, elevation, speed]);
         let labels = labels.id();
 
         let x = Meter::new(commands);
         let y = Meter::new(commands);
         let z = Meter::new(commands);
+        let azimuth = Meter::new(commands);
+        let elevation = Meter::new(commands);
         let speed = Meter::new(commands);
 
         let mut values = spawn_column(commands);
-        values.push_children(&[x.entity, y.entity, z.entity, speed.entity]);
+        values.push_children(&[ x.entity, y.entity, z.entity, azimuth.entity, elevation.entity,
+                                speed.entity ]);
         let values = values.id();
 
         let mut panel = commands.spawn((
@@ -67,11 +74,23 @@ impl Meters {
         panel.add_child(labels);
         panel.add_child(values);
 
-        Self { x, y, z, speed }
+        Self { x, y, z, azimuth, elevation, speed }
     }
 
     pub fn update_speed(&self, value: f32, commands: &mut Commands) {
         self.speed.update(value, commands);
+    }
+
+    pub fn update_transform(&self, transform: &Transform, commands: &mut Commands) {
+        self.x.update(transform.translation.x, commands);
+        self.y.update(transform.translation.y, commands);
+        self.z.update(transform.translation.z, commands);
+
+        let r = transform.forward();
+        let phi = r.y.atan2(r.x).to_degrees();
+        let theta = r.z.acos().to_degrees();
+        self.azimuth.update(90.0 - phi, commands);
+        self.elevation.update(90.0 - theta, commands);
     }
 }
 

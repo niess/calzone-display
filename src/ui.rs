@@ -2,11 +2,11 @@ use bevy::prelude::*;
 use super::geometry::GeometrySet;
 
 mod geometry;
-mod meter;
+mod meters;
 mod nord;
 
 pub use geometry::TargetEvent;
-pub use meter::Meters;
+pub use meters::Meters;
 pub use nord::NORD;
 
 

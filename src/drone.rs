@@ -17,6 +17,7 @@ impl Plugin for DronePlugin {
                 on_mouse_wheel,
                 on_keyboard,
                 on_target,
+                on_transform,
             ));
     }
 }
@@ -147,6 +148,17 @@ fn on_target(
             velocity.linvel = magnitude * transform.forward();
         }
     }
+}
+
+fn on_transform(
+    mut commands: Commands,
+    query: Query<(&Drone, &Transform), Changed<Transform>>,
+) {
+    if query.is_empty() {
+        return
+    }
+    let (drone, transform) = query.single();
+    drone.meters.update_transform(transform, &mut commands);
 }
 
 impl Drone {
