@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::pbr::wireframe::Wireframe;
+use crate::app::AppState;
 use crate::geometry::{Plain, Transparent, Volume};
 use crate::lighting::{Shadows, Sun};
 
@@ -34,7 +35,7 @@ impl Plugin for DisplayPlugin {
             .add_systems(Update, (
                 on_keyboard,
                 (on_display_mode, on_wireframe_mode).after(on_keyboard),
-            ));
+            ).run_if(in_state(AppState::Display)));
     }
 }
 

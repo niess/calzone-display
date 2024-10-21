@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy_rapier3d::prelude::*;
+use crate::app::AppState;
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::ui::{Meters, TargetEvent};
 use std::f32::consts::PI;
@@ -11,14 +12,14 @@ pub struct DronePlugin;
 impl Plugin for DronePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(Startup, spawn_drone.after(GeometrySet))
+            .add_systems(OnEnter(AppState::Display), spawn_drone.after(GeometrySet))
             .add_systems(Update, (
                 on_mouse_motion,
                 on_mouse_wheel,
                 on_keyboard,
                 on_target,
                 on_transform,
-            ));
+            ).run_if(in_state(AppState::Display)));
     }
 }
 

@@ -3,10 +3,12 @@ use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
 use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
 use bevy::render::primitives::Aabb;
+use crate::app::AppState;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ops::DerefMut;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -18,7 +20,7 @@ mod stl;
 mod units;
 
 
-pub struct GeometryPlugin (Mutex<Configuration>);
+pub struct GeometryPlugin;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GeometrySet;
@@ -39,7 +41,7 @@ pub struct Plain;
 #[derive(Component)]
 pub struct Transparent;
 
-#[derive(Clone, Default, Resource)]
+#[derive(Default)]
 enum Configuration {
     Data(Arc<data::GeometryInfo>),
     Stl(String),
@@ -47,8 +49,10 @@ enum Configuration {
     None,
 }
 
+static GEOMETRY: Mutex<Configuration> = Mutex::new(Configuration::None);
+
 impl GeometryPlugin{
-    pub fn new(py: Python, file: &str) -> PyResult<Self> {
+    pub fn load(py: Python, file: &str) -> PyResult<()> {
         // XXX Manage pathlib.Path input, or calzone.volume.
         let path = Path::new(file);
         let config = match path.extension().and_then(OsStr::to_str) {
@@ -66,7 +70,15 @@ impl GeometryPlugin{
             }
             _ => return Err(PyNotImplementedError::new_err("")),
         };
-        Ok(Self(Mutex::new(config)))
+        *GEOMETRY.lock().unwrap() = config;
+        Ok(())
+    }
+
+    pub fn is_some() -> bool {
+        match *GEOMETRY.lock().unwrap() {
+            Configuration::None => false,
+            _ => true,
+        }
     }
 }
 
@@ -74,17 +86,7 @@ impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(WireframePlugin)
-            .add_systems(Startup, setup_geometry.in_set(GeometrySet));
-
-        // Promote the geometry data to a Resource.
-        match &mut self.0.lock() {
-            Err(_) => unimplemented!(),
-            Ok(config) => {
-                app
-                    .world_mut()
-                    .insert_resource::<Configuration>(std::mem::take(config));
-            },
-        }
+            .add_systems(OnEnter(AppState::Display), setup_geometry.in_set(GeometrySet));
     }
 }
 
@@ -93,9 +95,8 @@ fn setup_geometry(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut wireframe_materials: ResMut<Assets<WireframeMaterial>>,
-    mut config: ResMut<Configuration>,
 ) {
-    let config = std::mem::take(config.as_mut());
+    let config = std::mem::take(GEOMETRY.lock().unwrap().deref_mut());
     match config {
         Configuration::Data(geometry) => {
             fn spawn_them_all( // recursively.

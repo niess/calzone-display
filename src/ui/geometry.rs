@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::app::AppState;
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use super::{UiText, UiWindow, WindowLocation};
 
@@ -10,11 +11,12 @@ pub fn build(app: &mut App) {
     app
         .add_event::<TargetEvent>()
         .add_event::<UpdateEvent>()
-        .add_systems(Startup, setup_window.after(GeometrySet))
+        .add_systems(OnEnter(AppState::Display), setup_window.after(GeometrySet))
         .add_systems(Update, (
             on_button,
             on_update.after(on_button)
-        ));
+
+        ).run_if(in_state(AppState::Display)));
 }
 
 #[derive(Component)]

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use chrono::{TimeZone, Utc};
+use crate::app::AppState;
 use super::geometry::GeometrySet;
 
 
@@ -22,7 +23,7 @@ impl Plugin for LightingPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_event::<Shadows>()
-            .add_systems(Startup, setup_light.after(GeometrySet));
+            .add_systems(OnEnter(AppState::Display), setup_light.after(GeometrySet));
     }
 }
 
