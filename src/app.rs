@@ -65,6 +65,7 @@ fn start() -> AppExit {
         ))
         .init_state::<AppState>()
         .add_systems(Startup, setup_physics)
+        .add_systems(OnExit(AppState::Display), clear_all)
         .add_systems(Update, (
             iddle_system.run_if(in_state(AppState::Iddle)),
             display_system.run_if(in_state(AppState::Display)),
@@ -100,15 +101,26 @@ fn iddle_system(
                     ..default()
                 },
                 PrimaryWindow,
-            ));
-            // XXX Got to the Iddle state if the window is closed.
+            ))
+            .observe(on_window_closed);
         }
         next_state.set(AppState::Display);
     }
+}
+
+fn clear_all(world: &mut World) {
+    world.clear_entities();
 }
 
 fn display_system(mut next_state: ResMut<NextState<AppState>>) {
     if GeometryPlugin::is_some() {
         next_state.set(AppState::Iddle); // Despawn the current display.
     }
+}
+
+fn on_window_closed(
+    _trigger: Trigger<OnRemove, PrimaryWindow>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    next_state.set(AppState::Iddle); // Despawn the current display.
 }

@@ -22,13 +22,17 @@ pub struct Sun {
 impl Plugin for LightingPlugin {
     fn build(&self, app: &mut App) {
         app
+            .insert_resource(Sun::default())
             .add_event::<Shadows>()
-            .add_systems(OnEnter(AppState::Display), setup_light.after(GeometrySet));
+            .add_systems(OnEnter(AppState::Display), setup_light.after(GeometrySet))
+            .add_systems(OnExit(AppState::Display), remove_light);
     }
 }
 
-fn setup_light(mut commands: Commands) {
-    let mut sun = Sun::default();
+fn setup_light(
+    mut commands: Commands,
+    mut sun: ResMut<Sun>,
+) {
     sun.entity = commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             color: LIGHT_YELLOW.into(),
@@ -41,7 +45,10 @@ fn setup_light(mut commands: Commands) {
     })
     .observe(Shadows::modify_sun)
     .id();
-    commands.insert_resource(sun);
+}
+
+fn remove_light(mut sun: ResMut<Sun>) {
+    sun.entity = Entity::PLACEHOLDER;
 }
 
 impl Shadows {

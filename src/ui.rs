@@ -18,6 +18,7 @@ impl Plugin for UiPlugin {
     }
 }
 
+#[derive(Component)]
 struct UiWindow;
 
 #[allow(dead_code)]
@@ -45,19 +46,22 @@ impl UiWindow {
             )
         ).id();
 
-        let mut capsule = commands.spawn(NodeBundle {
-            style: Style {
-                display: Display::Flex,
-                flex_direction: FlexDirection::Column,
-                align_self: AlignSelf::Stretch,
-                align_items: AlignItems::Center,
-                justify_items: JustifyItems::Center,
-                padding: UiRect::new(Val::ZERO, Val::ZERO, Val::Px(3.0), Val::Px(5.0)),
-                ..default()
-            },
-            background_color: NORD[2].into(),
-            ..default()
-        });
+        let mut capsule = commands.spawn((
+                UiWindow,
+                NodeBundle {
+                    style: Style {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
+                        align_self: AlignSelf::Stretch,
+                        align_items: AlignItems::Center,
+                        justify_items: JustifyItems::Center,
+                        padding: UiRect::new(Val::ZERO, Val::ZERO, Val::Px(3.0), Val::Px(5.0)),
+                        ..default()
+                    },
+                    background_color: NORD[2].into(),
+                    ..default()
+                },
+        ));
         capsule.add_child(title);
         let capsule = capsule.id();
 
