@@ -4,6 +4,7 @@ use bevy::window::{ExitCondition::DontExit, PrimaryWindow};
 use bevy::winit::{WakeUp, WinitPlugin};
 use pyo3::prelude::*;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use super::display::DisplayPlugin;
 use super::drone::DronePlugin;
@@ -14,25 +15,21 @@ use super::ui::UiPlugin;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppState {
+    Display,
     #[default]
     Iddle,
-    Display,
 }
 
-#[derive(Debug)]
-struct AppManager {
-    handler: thread::JoinHandle<AppExit>,
-}
+static HANDLE: Mutex<Option<thread::JoinHandle<AppExit>>> = Mutex::new(None);
 
-static APP_MANAGER: Mutex<Option<AppManager>> = Mutex::new(None);
+static EXIT: AtomicBool = AtomicBool::new(false);
 
 pub fn spawn(module: &Bound<PyModule>) -> PyResult<()> {
-    let handler = thread::spawn(start);
-    let manager = AppManager { handler };
-    APP_MANAGER
+    let handle = thread::spawn(start);
+    HANDLE
         .lock()
         .unwrap()
-        .replace(manager);
+        .replace(handle);
 
     let stopper = wrap_pyfunction!(stop, module)?;
     module.py().import_bound("atexit")?
@@ -75,12 +72,13 @@ fn start() -> AppExit {
 
 #[pyfunction]
 fn stop() {
-    let manager = APP_MANAGER
+    EXIT.store(true, Ordering::Relaxed);
+    let handle = HANDLE
         .lock()
         .unwrap()
         .take();
-    if let Some(manager) = manager {
-        manager.handler.join().unwrap();
+    if let Some(handle) = handle {
+        handle.join().unwrap();
     }
 }
 
@@ -92,6 +90,7 @@ fn iddle_system(
     mut commands: Commands,
     window: Query<&Window>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut exit: EventWriter<AppExit>,
 ) {
     if GeometryPlugin::is_some() {
         if window.is_empty() {
@@ -105,6 +104,10 @@ fn iddle_system(
             .observe(on_window_closed);
         }
         next_state.set(AppState::Display);
+    } else {
+        if EXIT.load(Ordering::Relaxed) {
+            exit.send(AppExit::Success);
+        }
     }
 }
 
