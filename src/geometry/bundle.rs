@@ -3,6 +3,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::pbr::wireframe::WireframeMaterial;
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::primitives::Aabb;
+use crate::app::Removable;
 use super::data::{MaterialInfo, VolumeInfo};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -54,10 +55,10 @@ impl VolumeSpawner {
     pub fn spawn_root<'a>(self, commands: &'a mut Commands) -> EntityCommands<'a> {
         match self {
             Self::Standard(bundle) => commands.spawn(
-                (bundle, super::RootVolume, super::Plain)
+                (bundle, super::RootVolume, super::Plain, Removable)
             ),
             Self::Wireframe(bundle) => commands.spawn(
-                (bundle, super::RootVolume, super::Transparent)
+                (bundle, super::RootVolume, super::Transparent, Removable)
             ),
         }
     }

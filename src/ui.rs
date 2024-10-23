@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
+use crate::app::Removable;
 
 mod geometry;
 mod meters;
@@ -89,7 +90,9 @@ impl UiWindow {
             border_radius: BorderRadius::all(Val::Px(4.0)),
             ..default()
         });
-        window.add_child(capsule);
+        window
+            .insert(Removable)
+            .add_child(capsule);
         window
     }
 }

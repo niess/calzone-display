@@ -3,7 +3,7 @@ use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
 use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
 use bevy::render::primitives::Aabb;
-use crate::app::AppState;
+use crate::app::{AppState, Removable};
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::collections::HashMap;
@@ -177,6 +177,7 @@ fn setup_geometry(
                     ..default()
                 },
                 RootVolume,
+                Removable,
                 Volume::new(name, aabb),
             ));
         },

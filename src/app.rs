@@ -20,6 +20,9 @@ pub enum AppState {
     Iddle,
 }
 
+#[derive(Component)]
+pub struct Removable;
+
 static HANDLE: Mutex<Option<thread::JoinHandle<AppExit>>> = Mutex::new(None);
 
 static EXIT: AtomicBool = AtomicBool::new(false);
@@ -111,8 +114,13 @@ fn iddle_system(
     }
 }
 
-fn clear_all(world: &mut World) {
-    world.clear_entities();
+fn clear_all(
+    entities: Query<Entity, With<Removable>>,
+    mut commands: Commands,
+) {
+    for entity in entities.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 }
 
 fn display_system(mut next_state: ResMut<NextState<AppState>>) {

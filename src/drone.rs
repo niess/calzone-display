@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy_rapier3d::prelude::*;
-use crate::app::AppState;
+use crate::app::{AppState, Removable};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::ui::{Meters, TargetEvent};
 use std::f32::consts::PI;
@@ -47,6 +47,7 @@ fn spawn_drone(
         .insert(RigidBody::KinematicVelocityBased)
         .insert(AdditionalMassProperties::Mass(1.0))
         .insert(Velocity::default())
+        .insert(Removable)
         .with_children(|parent| {
             parent.spawn((
                 DroneCamera,

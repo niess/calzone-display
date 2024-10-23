@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use chrono::{TimeZone, Utc};
-use crate::app::AppState;
+use crate::app::{AppState, Removable};
 use super::geometry::GeometrySet;
 
 
@@ -43,6 +43,7 @@ fn setup_light(
         transform: sun.compute_transform(),
         ..default()
     })
+    .insert(Removable)
     .observe(Shadows::modify_sun)
     .id();
 }
