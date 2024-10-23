@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use bevy::window::{ExitCondition::DontExit, PrimaryWindow};
-use bevy::winit::{WakeUp, WinitPlugin};
+use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
 use pyo3::prelude::*;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -94,6 +94,7 @@ fn iddle_system(
     window: Query<&Window>,
     mut next_state: ResMut<NextState<AppState>>,
     mut exit: EventWriter<AppExit>,
+    event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
 ) {
     if GeometryPlugin::is_some() {
         if window.is_empty() {
@@ -105,6 +106,7 @@ fn iddle_system(
                 PrimaryWindow,
             ))
             .observe(on_window_closed);
+            let _ = event_loop_proxy.send_event(WakeUp); // To trigger a winit redraw.
         }
         next_state.set(AppState::Display);
     } else {
