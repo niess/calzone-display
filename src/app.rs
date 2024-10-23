@@ -1,7 +1,8 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
+use bevy::log::{Level, LogPlugin};
 use bevy::window::{ExitCondition::DontExit, PrimaryWindow};
 use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
+use bevy_rapier3d::prelude::*;
 use pyo3::prelude::*;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -50,10 +51,24 @@ fn start() -> AppExit {
         close_when_requested: true,
     };
 
+    let log = if cfg!(debug_assertions) {
+        LogPlugin {
+            filter: "wgpu=error".to_string(),
+            ..default()
+        }
+    } else {
+        LogPlugin {
+            level: Level::ERROR,
+            filter: "".to_string(),
+            ..default()
+        }
+    };
+
     let mut app = App::new();
     app
         .add_plugins((
             DefaultPlugins.build()
+                .set(log)
                 .set(window)
                 .set(winit),
             RapierPhysicsPlugin::<NoUserData>::default(),
