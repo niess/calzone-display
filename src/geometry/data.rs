@@ -85,12 +85,32 @@ pub struct MaterialInfo {
 }
 
 impl GeometryInfo {
-    pub fn new(py: Python, path: &str) -> PyResult<Self> {
-        let bytes = py.import_bound("calzone")
+    pub fn load(py: Python, path: &str) -> PyResult<Self> {
+        let volume = py.import_bound("calzone")
             .and_then(|x| x.getattr("Geometry"))
             .and_then(|x| x.call1((path,)))
-            .and_then(|x| x.getattr("root"))
-            .and_then(|x| x.getattr("to_bytes"))
+            .and_then(|x| x.getattr("root"))?;
+        Self::from_volume_unchecked(&volume)
+    }
+
+    pub fn from_volume(volume: &Bound<PyAny>) -> PyResult<Self> {
+        let py = volume.py();
+        let ty = py.import_bound("calzone")
+            .and_then(|x| x.getattr("Volume"))?;
+        if volume.is_instance(&ty)? {
+            Self::from_volume_unchecked(volume)
+        } else {
+            let msg = format!(
+                "bad volume (expected a 'calzone.Volume', found '{}')",
+                volume.get_type()
+            );
+            let err = PyTypeError::new_err(msg);
+            Err(err)
+        }
+    }
+
+    fn from_volume_unchecked(volume: &Bound<PyAny>) -> PyResult<Self> {
+        let bytes = volume.getattr("to_bytes")
             .and_then(|x| x.call0())?;
         let bytes = bytes.downcast::<PyBytes>()?;
 

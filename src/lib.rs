@@ -9,17 +9,25 @@ mod path;
 mod ui;
 
 
-// XXX Interface to display a calzone.Volume.
-
-
 /// Display a Calzone geometry.
 #[pyfunction]
-#[pyo3(name="display", signature=(path,/))]
-fn run_display(path: path::PathString) -> PyResult<()> {
-    let py = path.0.py();
-    let path = path.to_string();
-    geometry::GeometryPlugin::load(py, path.as_str())?;
+#[pyo3(name="display", signature=(arg,/))]
+fn run_display(arg: DisplayArg) -> PyResult<()> {
+    match arg {
+        DisplayArg::Path(path) => {
+            let py = path.0.py();
+            let path = path.to_string();
+            geometry::GeometryPlugin::load(py, path.as_str())?;
+        },
+        DisplayArg::Any(any) => geometry::GeometryPlugin::from_volume(&any)?,
+    }
     Ok(())
+}
+
+#[derive(FromPyObject)]
+enum DisplayArg<'py> {
+    Path(path::PathString<'py>),
+    Any(Bound<'py, PyAny>),
 }
 
 

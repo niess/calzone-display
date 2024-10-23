@@ -56,7 +56,7 @@ impl GeometryPlugin{
         let path = Path::new(file);
         let config = match path.extension().and_then(OsStr::to_str) {
             Some("json") | Some("toml") | Some("yml") | Some("yaml") => {
-                let data = data::GeometryInfo::new(py, file)?;
+                let data = data::GeometryInfo::load(py, file)?;
                 Configuration::Data(Arc::new(data))
             },
             Some("stl") => {
@@ -69,6 +69,13 @@ impl GeometryPlugin{
             }
             _ => return Err(PyNotImplementedError::new_err("")),
         };
+        *GEOMETRY.lock().unwrap() = config;
+        Ok(())
+    }
+
+    pub fn from_volume(volume: &Bound<PyAny>) -> PyResult<()> {
+        let data = data::GeometryInfo::from_volume(volume)?;
+        let config = Configuration::Data(Arc::new(data));
         *GEOMETRY.lock().unwrap() = config;
         Ok(())
     }
