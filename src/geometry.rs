@@ -53,7 +53,6 @@ static GEOMETRY: Mutex<Configuration> = Mutex::new(Configuration::None);
 
 impl GeometryPlugin{
     pub fn load(py: Python, file: &str) -> PyResult<()> {
-        // XXX Manage pathlib.Path input, or calzone.volume.
         let path = Path::new(file);
         let config = match path.extension().and_then(OsStr::to_str) {
             Some("json") | Some("toml") | Some("yml") | Some("yaml") => {

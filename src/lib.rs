@@ -5,13 +5,20 @@ mod drone;
 mod display;
 mod geometry;
 mod lighting;
+mod path;
 mod ui;
 
 
-/// Run the viewer.
+// XXX Interface to display a calzone.Volume.
+
+
+/// Display a Calzone geometry.
 #[pyfunction]
-fn run(py: Python, path: &str) -> PyResult<()> {
-    geometry::GeometryPlugin::load(py, path)?;
+#[pyo3(name="display", signature=(path,/))]
+fn run_display(path: path::PathString) -> PyResult<()> {
+    let py = path.0.py();
+    let path = path.to_string();
+    geometry::GeometryPlugin::load(py, path.as_str())?;
     Ok(())
 }
 
@@ -23,7 +30,7 @@ fn calzone_viewer(module: &Bound<PyModule>) -> PyResult<()> {
     app::spawn(module)?;
 
     // Set the module's interface.
-    module.add_function(wrap_pyfunction!(run, module)?)?;
+    module.add_function(wrap_pyfunction!(run_display, module)?)?;
 
     Ok(())
 }
