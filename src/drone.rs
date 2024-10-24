@@ -5,7 +5,6 @@ use bevy_rapier3d::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::ui::{Meters, TargetEvent};
-use std::f32::consts::PI;
 
 
 pub struct DronePlugin;
@@ -56,7 +55,7 @@ fn spawn_drone(
                 DroneCamera,
                 Camera3dBundle {
                     projection: PerspectiveProjection {
-                        fov: 70.0_f32.to_radians(),
+                        fov: Drone::FOV_MAX,
                         ..default()
                     }.into(),
                     ..default()
@@ -94,6 +93,7 @@ fn on_mouse_button(
 fn on_mouse_motion(
     mut motions: EventReader<MouseMotion>,
     mut query: Query<(&Drone, &mut Transform, &mut Velocity)>,
+    mut camera: Query<&mut Projection, With<DroneCamera>>,
 ) {
     let (drone, mut transform, mut velocity) = query.single_mut();
     if drone.cursor.is_none() {
@@ -113,8 +113,13 @@ fn on_mouse_motion(
     if (x == 0.0) && (y == 0.0) {
         return
     }
-    let yaw = -0.003 * x;
-    let pitch = -0.002 * y;
+
+    let mut zoom = 1.0;
+    if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
+        zoom = Drone::FOV_MAX / perspective.fov;
+    }
+    let yaw = -0.003 * x / zoom;
+    let pitch = -0.002 * y / zoom;
 
     // Rotate the camera and the velocity vector.
     let r0i = if velocity.linvel == Vec3::ZERO {
@@ -132,14 +137,17 @@ fn on_mouse_motion(
 fn on_mouse_wheel(
     mut wheels: EventReader<MouseWheel>,
     mut camera: Query<&mut Projection, With<DroneCamera>>,
+    drone: Query<&Drone>,
+    mut commands: Commands,
 ) {
     if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
         let mut scroll = 0.0;
         for wheel in wheels.read() {
             scroll += wheel.y;
         }
-        perspective.fov = (perspective.fov - 0.05 * scroll)
+        perspective.fov = (perspective.fov * (-0.05 * scroll).exp())
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
+        drone.single().meters.update_zoom(Drone::FOV_MAX / perspective.fov, &mut commands);
     }
 }
 
@@ -209,8 +217,8 @@ fn on_transform(
 }
 
 impl Drone {
-    const FOV_MIN: f32 = PI / 40.0;
-    const FOV_MAX: f32 = PI / 2.0;
+    const FOV_MIN: f32 = 0.012217;
+    const FOV_MAX: f32 = 1.2217;
 
     const VELOCITY_MIN: f32 = 0.01;
     const VELOCITY_MAX: f32 = 1000.0;
@@ -219,6 +227,7 @@ impl Drone {
         let velocity = 1.0;
         let meters = Meters::new(commands);
         meters.update_speed(velocity, commands);
+        meters.update_zoom(1.0, commands);
         let cursor = None;
         Self { velocity, meters, cursor }
     }

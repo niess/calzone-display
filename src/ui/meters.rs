@@ -9,7 +9,7 @@ pub struct Meters {
     azimuth: Meter,
     elevation: Meter,
     speed: Meter,
-    // XXX Add zoom factor.
+    zoom: Meter,
 }
 
 impl Meters {
@@ -34,9 +34,10 @@ impl Meters {
         let azimuth = commands.spawn(super::UiText::new_bundle("azimuth")).id();
         let elevation = commands.spawn(super::UiText::new_bundle("elevation")).id();
         let speed = commands.spawn(super::UiText::new_bundle("speed")).id();
+        let zoom = commands.spawn(super::UiText::new_bundle("zoom")).id();
 
         let mut labels = spawn_column(commands);
-        labels.push_children(&[x, y, z, azimuth, elevation, speed]);
+        labels.push_children(&[x, y, z, azimuth, elevation, speed, zoom]);
         let labels = labels.id();
 
         let x = Meter::new(commands, "m");
@@ -45,10 +46,11 @@ impl Meters {
         let azimuth = Meter::new(commands, "deg");
         let elevation = Meter::new(commands, "deg");
         let speed = Meter::new(commands, "m/s");
+        let zoom = Meter::new(commands, "");
 
         let mut values = spawn_column(commands);
         values.push_children(&[ x.entity, y.entity, z.entity, azimuth.entity, elevation.entity,
-                                speed.entity ]);
+                                speed.entity, zoom.entity ]);
         let values = values.id();
 
         let mut content = commands.spawn(
@@ -67,7 +69,7 @@ impl Meters {
         let mut window = super::UiWindow::new("Drone", super::WindowLocation::TopRight, commands);
         window.add_child(content);
 
-        Self { x, y, z, azimuth, elevation, speed }
+        Self { x, y, z, azimuth, elevation, speed, zoom }
     }
 
     pub fn update_speed(&self, value: f32, commands: &mut Commands) {
@@ -84,6 +86,10 @@ impl Meters {
         let theta = r.z.acos().to_degrees();
         self.azimuth.update(90.0 - phi, commands);
         self.elevation.update(90.0 - theta, commands);
+    }
+
+    pub fn update_zoom(&self, value: f32, commands: &mut Commands) {
+        self.zoom.update(value, commands);
     }
 }
 
