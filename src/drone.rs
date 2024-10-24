@@ -69,6 +69,9 @@ fn on_mouse_button(
     mut drone: Query<&mut Drone>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
+    if window.is_empty() {
+        return; // The window might have been closed.
+    }
     let mut drone = drone.single_mut();
     let mut window = window.single_mut();
 

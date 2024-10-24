@@ -5,7 +5,6 @@ use crate::geometry::{Plain, Transparent, Volume};
 use crate::lighting::{Shadows, Sun};
 
 
-// XXX Control alpha level.
 // XXX Skybox?
 
 pub struct DisplayPlugin;
@@ -30,11 +29,23 @@ enum WireframeMode {
     Guard,
 }
 
+#[derive(Resource)]
+struct BlendSettings {
+    alpha: f32,
+}
+
+#[derive(Resource)]
+struct PremultipliedSettings {
+    alpha: f32,
+}
+
 impl Plugin for DisplayPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_resource::<DisplayMode>()
             .init_resource::<WireframeMode>()
+            .init_resource::<BlendSettings>()
+            .init_resource::<PremultipliedSettings>()
             .add_systems(Update, (
                 on_keyboard,
                 (on_display_mode, on_wireframe_mode).after(on_keyboard),
@@ -47,6 +58,8 @@ fn on_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     mut display_mode: ResMut<DisplayMode>,
     mut wireframe_mode: ResMut<WireframeMode>,
+    mut blend_settings: ResMut<BlendSettings>,
+    mut premultiplied_settings: ResMut<PremultipliedSettings>,
 ) {
     if keys.just_pressed(KeyCode::PageUp) {
         if keys.pressed(KeyCode::ShiftLeft) {
@@ -62,16 +75,45 @@ fn on_keyboard(
             display_mode.dec();
         }
     }
+
+    const DELTA: f32 = 0.005;
+    let mut delta = 0.0_f32;
+    if keys.pressed(KeyCode::ArrowUp) {
+        delta += DELTA;
+    }
+    if keys.pressed(KeyCode::ArrowDown) {
+        delta -= DELTA;
+    }
+
+    if delta != 0.0 {
+        match *display_mode {
+            DisplayMode::Blend => {
+                blend_settings.alpha = (blend_settings.alpha + delta)
+                    .clamp(0.0, 1.0);
+            },
+            DisplayMode::Premultiplied => {
+                premultiplied_settings.alpha = (premultiplied_settings.alpha + delta)
+                    .clamp(0.0, 1.0);
+            },
+            _ => (),
+        }
+    }
 }
 
 fn on_display_mode(
     mode: Res<DisplayMode>,
+    blend_settings: Res<BlendSettings>,
+    premultiplied_settings: Res<PremultipliedSettings>,
     handles: Query<&Handle<StandardMaterial>, With<Volume>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
     sun: Res<Sun>,
 ) {
-    if !mode.is_changed() {
+    if !(
+        mode.is_changed() ||
+        blend_settings.is_changed() ||
+        premultiplied_settings.is_changed()
+    ) {
         return
     }
 
@@ -80,7 +122,7 @@ fn on_display_mode(
             for handle in handles.iter() {
                 let material = materials.get_mut(handle).unwrap();
                 material.alpha_mode = AlphaMode::Blend;
-                material.base_color.set_alpha(0.33);
+                material.base_color.set_alpha(blend_settings.alpha);
             }
             Shadows::disable(&mut commands, &sun);
         },
@@ -96,7 +138,7 @@ fn on_display_mode(
             for handle in handles.iter() {
                 let material = materials.get_mut(handle).unwrap();
                 material.alpha_mode = AlphaMode::Premultiplied;
-                material.base_color.set_alpha(0.0);
+                material.base_color.set_alpha(premultiplied_settings.alpha);
             }
             Shadows::disable(&mut commands, &sun);
         },
@@ -198,5 +240,17 @@ impl From<i32> for WireframeMode {
         } else {
             unreachable!()
         }
+    }
+}
+
+impl Default for BlendSettings {
+    fn default() -> Self {
+        Self { alpha: 0.25 }
+    }
+}
+
+impl Default for PremultipliedSettings {
+    fn default() -> Self {
+        Self { alpha: 0.25 }
     }
 }
