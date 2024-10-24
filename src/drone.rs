@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy_rapier3d::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
@@ -14,6 +15,7 @@ impl Plugin for DronePlugin {
         app
             .add_systems(OnEnter(AppState::Display), spawn_drone.after(GeometrySet))
             .add_systems(Update, (
+                on_mouse_button,
                 on_mouse_motion,
                 on_mouse_wheel,
                 on_keyboard,
@@ -27,6 +29,7 @@ impl Plugin for DronePlugin {
 pub struct Drone {
     velocity: f32,
     meters: Meters,
+    cursor: Option<Vec2>,
 }
 
 #[derive(Component)]
@@ -62,26 +65,58 @@ fn spawn_drone(
         });
 }
 
+fn on_mouse_button(
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut drone: Query<&mut Drone>,
+    mut window: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let mut drone = drone.single_mut();
+    let mut window = window.single_mut();
+
+    if buttons.just_pressed(MouseButton::Right) {
+        if let Some(position) = window.cursor_position() {
+            drone.cursor = Some(position);
+            window.cursor.grab_mode = CursorGrabMode::Locked;
+            window.cursor.visible = false;
+        }
+    }
+
+    if buttons.just_released(MouseButton::Right) {
+        if let Some(position) = drone.cursor {
+            window.set_cursor_position(Some(position));
+        }
+        drone.cursor = None;
+        window.cursor.grab_mode = CursorGrabMode::None;
+        window.cursor.visible = true;
+    }
+}
+
 fn on_mouse_motion(
     mut motions: EventReader<MouseMotion>,
-    buttons: Res<ButtonInput<MouseButton>>,
-    mut query: Query<(&mut Transform, &mut Velocity), With<Drone>>,
+    mut query: Query<(&Drone, &mut Transform, &mut Velocity)>,
 ) {
-    if !buttons.pressed(MouseButton::Right) {
+    let (drone, mut transform, mut velocity) = query.single_mut();
+    if drone.cursor.is_none() {
         return
     }
 
-    let (mut transform, mut velocity) = query.single_mut();
-    let mut yaw = 0.0;
-    let mut pitch = 0.0;
-    for motion in motions.read() {
-        yaw -= motion.delta.x * 0.003;
-        pitch -= motion.delta.y * 0.002;
-    }
-    if (yaw == 0.0) && (pitch == 0.0) {
+    // Compute the total motion.
+    let (x, y) = {
+        let mut x = 0.0;
+        let mut y = 0.0;
+        for motion in motions.read() {
+            x += motion.delta.x;
+            y += motion.delta.y;
+        }
+        (x, y)
+    };
+    if (x == 0.0) && (y == 0.0) {
         return
     }
+    let yaw = -0.003 * x;
+    let pitch = -0.002 * y;
 
+    // Rotate the camera and the velocity vector.
     let r0i = if velocity.linvel == Vec3::ZERO {
         Some(transform.rotation.inverse())
     } else {
@@ -183,6 +218,7 @@ impl Drone {
     fn new(commands: &mut Commands) -> Self {
         let velocity = 1.0;
         let meters = Meters::new(commands);
-        Self { velocity, meters }
+        let cursor = None;
+        Self { velocity, meters, cursor }
     }
 }
