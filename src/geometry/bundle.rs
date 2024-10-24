@@ -99,7 +99,7 @@ where
 }
 
 fn compute_aabb(mesh: &Mesh, transform: &GlobalTransform) -> Aabb {
-    let transform = transform.affine(); // XXX Check this.
+    let transform = transform.affine();
     let mut min = Vec3::INFINITY;
     let mut max = Vec3::NEG_INFINITY;
     let VertexAttributeValues::Float32x3(vertices) = mesh.attribute(Mesh::ATTRIBUTE_POSITION)

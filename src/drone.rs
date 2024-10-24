@@ -72,15 +72,25 @@ fn on_mouse_motion(
     }
 
     let (mut transform, mut velocity) = query.single_mut();
+    let mut yaw = 0.0;
+    let mut pitch = 0.0;
     for motion in motions.read() {
-        let yaw = -motion.delta.x * 0.003;
-        let pitch = -motion.delta.y * 0.002;
-        transform.rotate_z(yaw);
-        transform.rotate_local_x(pitch);
+        yaw -= motion.delta.x * 0.003;
+        pitch -= motion.delta.y * 0.002;
     }
-    let magnitude = velocity.linvel.length();
-    if magnitude != 0.0 {
-        velocity.linvel = magnitude * transform.forward();
+    if (yaw == 0.0) && (pitch == 0.0) {
+        return
+    }
+
+    let r0i = if velocity.linvel == Vec3::ZERO {
+        Some(transform.rotation.inverse())
+    } else {
+        None
+    };
+    transform.rotate_z(yaw);
+    transform.rotate_local_x(pitch);
+    if let Some(r0i) = r0i {
+        velocity.linvel = (transform.rotation * r0i) * velocity.linvel;
     }
 }
 

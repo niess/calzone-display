@@ -198,7 +198,7 @@ impl Volume {
     }
 
     pub fn target(&self) -> Transform {
-        let [dx, dy, dz] = self.aabb.half_extents.into(); // XXX Does not follow rotation?
+        let [dx, dy, dz] = self.aabb.half_extents.into();
         let origin = Vec3::from(self.aabb.center);
         let start_position = origin + Vec3::new(-1.5 * dx, -1.5 * dy, 3.0 * dz);
         Transform::from_translation(start_position)
