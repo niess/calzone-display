@@ -73,8 +73,7 @@ impl Shadows {
 }
 
 impl Sun {
-    fn compute_transform(&self) -> Transform {
-        // Compute sun azimuth & elevation angles.
+    pub fn compute_position(&self) -> spa::SolarPos {
         let h = self.time.floor();
         let m = ((self.time - h) * 60.0).floor();
         let s = ((self.time - h) * 3600.0 - m * 60.0).floor();
@@ -88,9 +87,14 @@ impl Sun {
         )
             .single()
             .unwrap();
-        let sun_position = spa::solar_position::<spa::StdFloatOps>(
+        spa::solar_position::<spa::StdFloatOps>(
             utc, self.latitude as f64, self.longitude as f64,
-        ).unwrap();
+        ).unwrap()
+    }
+
+    fn compute_transform(&self) -> Transform {
+        // Compute sun azimuth & elevation angles.
+        let sun_position = self.compute_position();
 
         // Convert to spherical coordinates.
         let theta = sun_position.zenith_angle.to_radians() as f32;

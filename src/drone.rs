@@ -4,6 +4,7 @@ use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy_rapier3d::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
+use crate::sky::{SkyBundle, SkyCamera};
 use crate::ui::{Meters, TargetEvent};
 
 
@@ -12,7 +13,7 @@ pub struct DronePlugin;
 impl Plugin for DronePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(OnEnter(AppState::Display), spawn_drone.after(GeometrySet))
+            .add_systems(OnEnter(AppState::Display), Drone::spawn.after(GeometrySet))
             .add_systems(Update, (
                 on_mouse_button,
                 on_mouse_motion,
@@ -32,36 +33,39 @@ pub struct Drone {
 }
 
 #[derive(Component)]
-struct DroneCamera;
+pub struct DroneCamera;
 
-fn spawn_drone(
-    mut commands: Commands,
-    query: Query<&Volume, With<RootVolume>>,
-) {
-    let drone = Drone::new(&mut commands);
-    let root = query.single();
-    commands
-        .spawn(drone)
-        .insert(SpatialBundle {
-            transform: root.target(),
-            ..default()
-        })
-        .insert(RigidBody::KinematicVelocityBased)
-        .insert(AdditionalMassProperties::Mass(1.0))
-        .insert(Velocity::default())
-        .insert(Removable)
-        .with_children(|parent| {
-            parent.spawn((
-                DroneCamera,
-                Camera3dBundle {
-                    projection: PerspectiveProjection {
-                        fov: Drone::FOV_MAX,
+impl Drone {
+    pub fn spawn(
+        mut commands: Commands,
+        query: Query<&Volume, With<RootVolume>>,
+    ) {
+        let drone = Drone::new(&mut commands);
+        let root = query.single();
+        commands
+            .spawn(drone)
+            .insert(SpatialBundle {
+                transform: root.target(),
+                ..default()
+            })
+            .insert(RigidBody::KinematicVelocityBased)
+            .insert(AdditionalMassProperties::Mass(1.0))
+            .insert(Velocity::default())
+            .insert(Removable)
+            .with_children(|parent| {
+                parent.spawn((
+                    DroneCamera,
+                    Camera3dBundle {
+                        projection: PerspectiveProjection {
+                            fov: Drone::FOV_MAX,
+                            ..default()
+                        }.into(),
                         ..default()
-                    }.into(),
-                    ..default()
-                },
-            ));
-        });
+                    },
+                ));
+                parent.spawn(SkyBundle::new(Drone::FOV_MAX));
+            });
+    }
 }
 
 fn on_mouse_button(
@@ -139,7 +143,8 @@ fn on_mouse_motion(
 
 fn on_mouse_wheel(
     mut wheels: EventReader<MouseWheel>,
-    mut camera: Query<&mut Projection, With<DroneCamera>>,
+    mut camera: Query<&mut Projection, (With<DroneCamera>, Without<SkyCamera>)>,
+    mut sky: Query<&mut Projection, (With<SkyCamera>, Without<DroneCamera>)>,
     drone: Query<&Drone>,
     mut commands: Commands,
 ) {
@@ -151,6 +156,10 @@ fn on_mouse_wheel(
         perspective.fov = (perspective.fov * (-0.05 * scroll).exp())
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
         drone.single().meters.update_zoom(Drone::FOV_MAX / perspective.fov, &mut commands);
+
+        if let Projection::Perspective(sky) = sky.single_mut().into_inner() {
+            sky.fov = perspective.fov;
+        }
     }
 }
 
@@ -221,7 +230,7 @@ fn on_transform(
 
 impl Drone {
     const FOV_MIN: f32 = 0.012217;
-    const FOV_MAX: f32 = 1.2217;
+    pub const FOV_MAX: f32 = 1.2217;
 
     const VELOCITY_MIN: f32 = 0.01;
     const VELOCITY_MAX: f32 = 1000.0;

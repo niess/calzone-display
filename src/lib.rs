@@ -6,6 +6,7 @@ mod display;
 mod geometry;
 mod lighting;
 mod path;
+mod sky;
 mod ui;
 
 

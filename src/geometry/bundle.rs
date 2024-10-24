@@ -152,6 +152,7 @@ impl GetMaterial for Named<StandardMaterial> {
             .or_insert_with(|| {
                 materials.add(StandardMaterial {
                     base_color: info.color().into(),
+                    double_sided: true,
                     cull_mode: None,
                     ..default()
                 })

@@ -11,6 +11,7 @@ use super::display::DisplayPlugin;
 use super::drone::DronePlugin;
 use super::geometry::GeometryPlugin;
 use super::lighting::LightingPlugin;
+use super::sky::SkyPlugin;
 use super::ui::UiPlugin;
 
 
@@ -76,6 +77,7 @@ fn start() -> AppExit {
             DronePlugin,
             GeometryPlugin,
             LightingPlugin,
+            SkyPlugin,
             UiPlugin,
         ))
         .init_state::<AppState>()

@@ -5,8 +5,6 @@ use crate::geometry::{Plain, Transparent, Volume};
 use crate::lighting::{Shadows, Sun};
 
 
-// XXX Skybox?
-
 pub struct DisplayPlugin;
 
 #[derive(Clone, Copy, Default, Resource)]
