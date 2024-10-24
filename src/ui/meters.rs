@@ -39,12 +39,12 @@ impl Meters {
         labels.push_children(&[x, y, z, azimuth, elevation, speed]);
         let labels = labels.id();
 
-        let x = Meter::new(commands);
-        let y = Meter::new(commands);
-        let z = Meter::new(commands);
-        let azimuth = Meter::new(commands);
-        let elevation = Meter::new(commands);
-        let speed = Meter::new(commands);
+        let x = Meter::new(commands, "m");
+        let y = Meter::new(commands, "m");
+        let z = Meter::new(commands, "m");
+        let azimuth = Meter::new(commands, "deg");
+        let elevation = Meter::new(commands, "deg");
+        let speed = Meter::new(commands, "m/s");
 
         let mut values = spawn_column(commands);
         values.push_children(&[ x.entity, y.entity, z.entity, azimuth.entity, elevation.entity,
@@ -89,16 +89,20 @@ impl Meters {
 
 struct Meter {
     entity: Entity,
+    unit: &'static str,
 }
 
 #[derive(Component)]
 struct MeterText;
 
 #[derive(Event)]
-struct MeterEvent(pub f32);
+struct MeterEvent {
+    pub value: f32,
+    pub unit: &'static str,
+}
 
 impl Meter {
-    pub fn new(commands: &mut Commands) -> Self {
+    pub fn new(commands: &mut Commands, unit: &'static str) -> Self {
         let entity = commands.spawn((
             MeterText,
             super::UiText::new_bundle("undefined"),
@@ -106,11 +110,12 @@ impl Meter {
         .observe(MeterEvent::update)
         .id();
 
-        Self { entity }
+        Self { entity, unit }
     }
 
     pub fn update(&self, value: f32, commands: &mut Commands) {
-        commands.trigger_targets(MeterEvent(value), self.entity);
+        let unit = self.unit;
+        commands.trigger_targets(MeterEvent { value, unit }, self.entity);
     }
 }
 
@@ -119,8 +124,9 @@ impl MeterEvent {
         trigger: Trigger<Self>,
         mut texts: Query<&mut Text, With<MeterText>>,
     ) {
-        let value = trigger.event().0;
+        let value = trigger.event().value;
+        let unit = trigger.event().unit;
         let mut text = texts.get_mut(trigger.entity()).unwrap();
-        text.sections[0].value = format!("{}", value);
+        text.sections[0].value = format!("{:8.2}  {:^3}", value, unit);
     }
 }
