@@ -71,7 +71,7 @@ impl Meters {
     }
 
     pub fn update_speed(&self, value: f32, commands: &mut Commands) {
-        self.speed.update(value, commands); // XXX Display the initial value.
+        self.speed.update(value, commands);
     }
 
     pub fn update_transform(&self, transform: &Transform, commands: &mut Commands) {

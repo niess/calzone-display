@@ -218,6 +218,7 @@ impl Drone {
     fn new(commands: &mut Commands) -> Self {
         let velocity = 1.0;
         let meters = Meters::new(commands);
+        meters.update_speed(velocity, commands);
         let cursor = None;
         Self { velocity, meters, cursor }
     }
