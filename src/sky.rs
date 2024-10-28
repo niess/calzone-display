@@ -9,8 +9,6 @@ use crate::drone::Drone;
 use crate::lighting::Sun;
 
 
-// XXX Keyboard toggle for skybox.
-
 pub struct SkyPlugin;
 
 #[derive(Bundle)]
@@ -25,7 +23,7 @@ impl Plugin for SkyPlugin {
             .add_plugins(AtmospherePlugin)
             .insert_resource(AtmosphereModel::new(Nishita::default()))
             .add_systems(OnEnter(AppState::Display), add_skybox.after(Drone::spawn))
-            .add_systems(Update, update_sky.run_if(in_state(AppState::Display)));
+            .add_systems(Update, (on_keyboard, update_sky).run_if(in_state(AppState::Display)));
     }
 }
 
@@ -50,6 +48,21 @@ fn update_sky(
         ),
         ..default()
     });
+}
+
+fn on_keyboard(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut visibility: Query<&mut Visibility, With<SkyCamera>>,
+) {
+    let mut visibility = visibility.single_mut();
+
+    if keyboard_input.just_pressed(KeyCode::KeyP) {
+        *visibility = match *visibility {
+            Visibility::Hidden => Visibility::Visible,
+            Visibility::Visible => Visibility::Hidden,
+            _ => unimplemented!(),
+        }
+    }
 }
 
 const SKY_LAYER: usize = 1;
