@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use super::display::DisplayPlugin;
 use super::drone::DronePlugin;
+use super::event::EventPlugin;
 use super::geometry::GeometryPlugin;
 use super::lighting::LightingPlugin;
 use super::sky::SkyPlugin;
@@ -75,6 +76,7 @@ fn start() -> AppExit {
             RapierPhysicsPlugin::<NoUserData>::default(),
             DisplayPlugin,
             DronePlugin,
+            EventPlugin,
             GeometryPlugin,
             LightingPlugin,
             SkyPlugin,
