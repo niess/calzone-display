@@ -133,7 +133,7 @@ fn iddle_system(
     }
 }
 
-fn clear_all(
+pub fn clear_all(
     entities: Query<Entity, With<Removable>>,
     mut commands: Commands,
 ) {

@@ -1,11 +1,14 @@
 use bevy::prelude::*;
+use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
 use bevy::render::view::RenderLayers;
 use bevy_atmosphere::prelude::*;
+use bevy_atmosphere::plugin::AtmosphereSkyBox;
+use bevy_atmosphere::skybox;
 use crate::app::AppState;
+use crate::drone::Drone;
 use crate::lighting::Sun;
 
 
-// XXX Correct error on close.
 // XXX Keyboard toggle for skybox.
 
 pub struct SkyPlugin;
@@ -21,6 +24,7 @@ impl Plugin for SkyPlugin {
         app
             .add_plugins(AtmospherePlugin)
             .insert_resource(AtmosphereModel::new(Nishita::default()))
+            .add_systems(OnEnter(AppState::Display), add_skybox.after(Drone::spawn))
             .add_systems(Update, update_sky.run_if(in_state(AppState::Display)));
     }
 }
@@ -49,6 +53,35 @@ fn update_sky(
 }
 
 const SKY_LAYER: usize = 1;
+const SKY_FAR: f32 = 1000.0;
+
+fn add_skybox<'a>(
+    mut commands: Commands,
+    camera: Query<Entity, With<SkyCamera>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    material: Res<skybox::AtmosphereSkyBoxMaterial>,
+) {
+    commands
+        .entity(camera.single())
+        .insert(VisibilityBundle {
+            visibility: Visibility::Visible,
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    MaterialMeshBundle {
+                        mesh: meshes.add(skybox::mesh(SKY_FAR)),
+                        material: material.0.clone(),
+                        ..default()
+                    },
+                    AtmosphereSkyBox,
+                    NotShadowCaster,
+                    NotShadowReceiver,
+                    RenderLayers::layer(SKY_LAYER),
+                ));
+        });
+}
 
 impl SkyBundle {
     pub fn new(fov: f32) -> Self {
@@ -63,6 +96,7 @@ impl SkyBundle {
                     ..default()
                 },
                 projection: PerspectiveProjection {
+                    far: SKY_FAR,
                     fov,
                     ..default()
                 }.into(),
