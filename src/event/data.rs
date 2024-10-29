@@ -104,11 +104,12 @@ impl From<CTrack> for Track {
 
 impl From<CVertex> for Vertex {
     fn from(vertex: CVertex) -> Self {
+        const CM: f32 = 1E-02;
         let energy = vertex.energy as f32;
         let position = Vec3::new(
-            vertex.position[0] as f32,
-            vertex.position[1] as f32,
-            vertex.position[2] as f32,
+            (vertex.position[0] as f32) * CM,
+            (vertex.position[1] as f32) * CM,
+            (vertex.position[2] as f32) * CM,
         );
         let process = CStr::from_bytes_until_nul(&vertex.process).unwrap();
         let process = process.to_str().unwrap().to_string();

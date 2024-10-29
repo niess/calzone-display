@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use crate::app::{AppState, Removable};
 use crate::geometry::GeometrySet;
 use std::ops::Deref;
@@ -43,6 +44,8 @@ struct VertexAssets {
     material: Handle<StandardMaterial>,
 }
 
+const EVENT_LAYER: usize = 2;
+
 static VERTEX_ASSETS: Mutex<Option<VertexAssets>> = Mutex::new(None);
 
 fn setup_event(
@@ -55,10 +58,11 @@ fn setup_event(
             // Get or create vertices mesh.
             let mut vertex_assets = VERTEX_ASSETS.lock().unwrap();
             if vertex_assets.is_none() {
-                let mesh = Sphere::new(0.1).mesh().build();
+                let mesh = Sphere::new(0.001).mesh().build();
                 let mesh = meshes.add(mesh);
                 let material = StandardMaterial {
-                    emissive: LinearRgba::rgb(1000.0, 0.0, 0.0),
+                    base_color: Srgba::rgb(1.0, 1.0, 0.0).into(),
+                    unlit: true,
                     ..default()
                 };
                 let material = materials.add(material);
@@ -98,6 +102,7 @@ fn setup_event(
                                             ),
                                             ..default()
                                         },
+                                        RenderLayers::layer(EVENT_LAYER),
                                     ));
                                 }
                           });
@@ -124,5 +129,31 @@ impl<'a> From<&'a data::Vertex> for Vertex {
             energy: vertex.energy,
             process: vertex.process.clone(),
         }
+    }
+}
+
+#[derive(Component)]
+pub struct EventCamera;
+
+#[derive(Bundle)]
+pub struct EventBundle (EventCamera, Camera3dBundle, RenderLayers);
+
+impl EventBundle {
+    pub fn new(fov: f32) -> Self {
+        Self (
+            EventCamera,
+            Camera3dBundle {
+                camera: Camera {
+                    order: 1,
+                    ..default()
+                },
+                projection: PerspectiveProjection {
+                    fov,
+                    ..default()
+                }.into(),
+                ..default()
+            },
+            RenderLayers::layer(EVENT_LAYER),
+        )
     }
 }

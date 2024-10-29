@@ -3,6 +3,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy_rapier3d::prelude::*;
 use crate::app::{AppState, Removable};
+use crate::event::{EventBundle, EventCamera};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::sky::{SkyBundle, SkyCamera};
 use crate::ui::{Meters, TargetEvent};
@@ -64,6 +65,7 @@ impl Drone {
                     },
                 ));
                 parent.spawn(SkyBundle::new(Drone::FOV_MAX));
+                parent.spawn(EventBundle::new(Drone::FOV_MAX));
             });
     }
 }
@@ -143,8 +145,15 @@ fn on_mouse_motion(
 
 fn on_mouse_wheel(
     mut wheels: EventReader<MouseWheel>,
-    mut camera: Query<&mut Projection, (With<DroneCamera>, Without<SkyCamera>)>,
-    mut sky: Query<&mut Projection, (With<SkyCamera>, Without<DroneCamera>)>,
+    mut camera: Query<&mut Projection, (
+        With<DroneCamera>, Without<EventCamera>, Without<SkyCamera>
+    )>,
+    mut event: Query<&mut Projection, (
+        With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
+    )>,
+    mut sky: Query<&mut Projection, (
+        With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
+    )>,
     drone: Query<&Drone>,
     mut commands: Commands,
 ) {
@@ -157,6 +166,9 @@ fn on_mouse_wheel(
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
         drone.single().meters.update_zoom(Drone::FOV_MAX / perspective.fov, &mut commands);
 
+        if let Projection::Perspective(event) = event.single_mut().into_inner() {
+            event.fov = perspective.fov;
+        }
         if let Projection::Perspective(sky) = sky.single_mut().into_inner() {
             sky.fov = perspective.fov;
         }
