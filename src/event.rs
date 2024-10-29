@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
+use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::geometry::GeometrySet;
 use std::ops::Deref;
@@ -17,6 +18,7 @@ pub struct EventPlugin;
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugins(PolylinePlugin)
             .add_systems(OnEnter(AppState::Display), setup_event.after(GeometrySet));
     }
 }
@@ -52,6 +54,8 @@ fn setup_event(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut polylines: ResMut<Assets<Polyline>>,
+    mut polymats: ResMut<Assets<PolylineMaterial>>,
 ) {
     if let Some(events) = Events::lock().deref() {
         if let Some(event) = events.0.get(&0) {
@@ -77,10 +81,25 @@ fn setup_event(
                 ))
                 .with_children(|parent| {
                     for track in event.tracks.values() {
+                        let vertices: Vec<Vec3> = track.vertices
+                            .iter()
+                            .map(|v| v.position)
+                            .collect();
+                        let polyline = Polyline { vertices };
+                        let material = PolylineMaterial {
+                            width: 1.0,
+                            color: LinearRgba::rgb(1.0, 1.0, 0.0),
+                            ..default()
+                        };
                         parent
                             .spawn((
                                 Track::from(track),
-                                SpatialBundle::default(),
+                                PolylineBundle {
+                                    polyline: polylines.add(polyline),
+                                    material: polymats.add(material),
+                                    ..default()
+                                },
+                                RenderLayers::layer(EVENT_LAYER),
                             ))
                             .with_children(|parent| {
                                 for vertex in track.vertices.iter() {
