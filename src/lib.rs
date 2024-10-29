@@ -30,7 +30,7 @@ fn run_display<'py>(
 
     // Parse any tracking data.
     if let Some(data) = data {
-        event::Events::parse(data)?;
+        event::EventsData::parse(data)?;
     }
 
     Ok(())

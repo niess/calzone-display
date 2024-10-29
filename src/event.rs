@@ -2,14 +2,12 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
-use crate::geometry::GeometrySet;
-use std::ops::Deref;
 use std::sync::Mutex;
 
 mod data;
 mod numpy;
 
-pub use data::Events;
+pub use data::Events as EventsData;
 pub use numpy::initialise;
 
 
@@ -19,10 +17,21 @@ impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(PolylinePlugin)
-            .add_systems(OnEnter(AppState::Display), setup_event.after(GeometrySet));
+            .init_resource::<Events>()
+            .add_systems(Update, (
+                    update_events,
+                    draw_event,
+                    on_keyboard,
+                ).run_if(in_state(AppState::Display))
+            );
     }
 }
 
+#[derive(Default, Resource)]
+pub struct Events {
+    data: data::Events,
+    index: usize,
+}
 
 #[derive(Component)]
 struct Event (usize);
@@ -41,6 +50,17 @@ struct Vertex {
     process: String,
 }
 
+fn update_events(
+    mut events: ResMut<Events>,
+) {
+    if let Some(data) = data::Events::take() {
+        *events = Events {
+            data,
+            index: 0,
+        }
+    }
+}
+
 struct VertexAssets {
     mesh: Handle<Mesh>,
     material: Handle<StandardMaterial>,
@@ -50,15 +70,23 @@ const EVENT_LAYER: usize = 2;
 
 static VERTEX_ASSETS: Mutex<Option<VertexAssets>> = Mutex::new(None);
 
-fn setup_event(
+fn draw_event(
+    events: Res<Events>,
+    current_event: Query<Entity, With<Event>>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut polylines: ResMut<Assets<Polyline>>,
     mut polymats: ResMut<Assets<PolylineMaterial>>,
 ) {
-    if let Some(events) = Events::lock().deref() {
-        if let Some(event) = events.0.get(&0) {
+    if events.is_changed() && (events.index < events.data.0.len()) {
+        if let Some(event) = events.data.0.get(&events.index) {
+            for entity in current_event.iter() {
+                commands
+                    .entity(entity)
+                    .despawn_recursive();
+            }
+
             // Get or create vertices mesh.
             let mut vertex_assets = VERTEX_ASSETS.lock().unwrap();
             if vertex_assets.is_none() {
@@ -131,6 +159,30 @@ fn setup_event(
     }
 }
 
+fn on_keyboard(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut events: ResMut<Events>,
+) {
+    let n = events.data.0.len();
+    if n == 0 {
+        return;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+        events.index += 1;
+        if events.index >= n {
+            events.index = 0;
+        }
+    }
+    if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+        if events.index > 0 {
+            events.index -= 1;
+        } else {
+            events.index = n - 1;
+        }
+    }
+}
+
 impl<'a> From<&'a data::Track> for Track {
     fn from(track: &'a data::Track) -> Self {
         Self {
@@ -176,3 +228,20 @@ impl EventBundle {
         )
     }
 }
+
+/* XXX
+#[derive(Default, Resource)]
+struct EventsCursor {
+    index: usize,
+    len: usize,
+}
+
+fn setup_cursor(mut cursor: ResMut<EventsCursor>) {
+    if let Some(events) = Events::lock().deref() {
+        *cursor = EventsCursor {
+            index: 0,
+            len: events.0.len(),
+        }
+    }
+}
+*/

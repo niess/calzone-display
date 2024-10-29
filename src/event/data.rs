@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 use super::numpy::PyArray;
 
 
@@ -12,6 +12,7 @@ use super::numpy::PyArray;
 //
 // ===============================================================================================
 
+#[derive(Default)]
 pub struct Events (pub HashMap<usize, Event>);
 
 pub struct Event {
@@ -75,8 +76,8 @@ impl Events {
         Ok(())
     }
 
-    pub fn lock() -> MutexGuard<'static, Option<Self>> {
-        EVENTS.lock().unwrap()
+    pub fn take() -> Option<Self> {
+        EVENTS.lock().unwrap().take()
     }
 }
 
