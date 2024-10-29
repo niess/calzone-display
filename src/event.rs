@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
-use std::sync::Mutex;
 
+mod colours;
 mod data;
 mod numpy;
 
@@ -61,14 +61,7 @@ fn update_events(
     }
 }
 
-struct VertexAssets {
-    mesh: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-}
-
 const EVENT_LAYER: usize = 2;
-
-static VERTEX_ASSETS: Mutex<Option<VertexAssets>> = Mutex::new(None);
 
 fn draw_event(
     events: Res<Events>,
@@ -81,26 +74,14 @@ fn draw_event(
 ) {
     if events.is_changed() && (events.index < events.data.0.len()) {
         if let Some(event) = events.data.0.get(&events.index) {
+            // Remove any existing event.
             for entity in current_event.iter() {
                 commands
                     .entity(entity)
                     .despawn_recursive();
             }
 
-            // Get or create vertices mesh.
-            let mut vertex_assets = VERTEX_ASSETS.lock().unwrap();
-            if vertex_assets.is_none() {
-                let mesh = Sphere::new(0.001).mesh().build();
-                let mesh = meshes.add(mesh);
-                let material = StandardMaterial {
-                    base_color: Srgba::rgb(1.0, 1.0, 0.0).into(),
-                    unlit: true,
-                    ..default()
-                };
-                let material = materials.add(material);
-                *vertex_assets = Some(VertexAssets { mesh, material });
-            }
-
+            // Spawan the current event.
             commands
                 .spawn((
                     Event (event.index),
@@ -109,6 +90,22 @@ fn draw_event(
                 ))
                 .with_children(|parent| {
                     for track in event.tracks.values() {
+                        let vertex_size = match track.pid {
+                            22 => 5E-04,
+                            _ => 3E-04,
+                        };
+                        let vertex_mesh = Sphere::new(vertex_size).mesh().build();
+                        let vertex_mesh = meshes.add(vertex_mesh);
+                        let color = match colours::COLOURS.get(&track.pid) {
+                            Some(color) => *color,
+                            None => LinearRgba::WHITE,
+                        };
+                        let vertex_material = StandardMaterial {
+                            base_color: color.into(),
+                            unlit: true,
+                            ..default()
+                        };
+                        let vertex_material = materials.add(vertex_material);
                         let vertices: Vec<Vec3> = track.vertices
                             .iter()
                             .map(|v| v.position)
@@ -116,7 +113,7 @@ fn draw_event(
                         let polyline = Polyline { vertices };
                         let material = PolylineMaterial {
                             width: 1.0,
-                            color: LinearRgba::rgb(1.0, 1.0, 0.0),
+                            color,
                             ..default()
                         };
                         parent
@@ -130,20 +127,13 @@ fn draw_event(
                                 RenderLayers::layer(EVENT_LAYER),
                             ))
                             .with_children(|parent| {
-                                for vertex in track.vertices.iter() {
+                                let n = track.vertices.len();
+                                for vertex in track.vertices[1..n].iter() {
                                     parent.spawn((
                                         Vertex::from(vertex),
                                         PbrBundle {
-                                            material: vertex_assets
-                                                .as_ref()
-                                                .unwrap()
-                                                .material
-                                                .clone(),
-                                            mesh: vertex_assets
-                                                .as_ref()
-                                                .unwrap()
-                                                .mesh
-                                                .clone(),
+                                            material: vertex_material.clone(),
+                                            mesh: vertex_mesh.clone(),
                                             transform: Transform::from_translation(
                                                 vertex.position
                                             ),
@@ -228,20 +218,3 @@ impl EventBundle {
         )
     }
 }
-
-/* XXX
-#[derive(Default, Resource)]
-struct EventsCursor {
-    index: usize,
-    len: usize,
-}
-
-fn setup_cursor(mut cursor: ResMut<EventsCursor>) {
-    if let Some(events) = Events::lock().deref() {
-        *cursor = EventsCursor {
-            index: 0,
-            len: events.0.len(),
-        }
-    }
-}
-*/
