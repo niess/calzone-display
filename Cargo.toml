@@ -23,7 +23,6 @@ bevy = { version = "0.14", default-features = false, features = [
     "x11",
 ]}
 bevy_atmosphere = { version = "0.10", default-features = false, features = ["dithering", "procedural", "nishita"] }
-bevy_mod_picking = { version = "0.20", default-features = false, features = ["highlight", "selection"] }
 bevy_polyline = "0.10"
 bevy_rapier3d = "0.27"
 chrono = "0.4"
