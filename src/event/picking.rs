@@ -3,11 +3,11 @@ use bevy::math::Vec3A;
 use bevy::math::bounding::{BoundingSphere, RayCast3d};
 use bevy::window::PrimaryWindow;
 use crate::app::AppState;
+use crate::ui::UiEvent;
 use super::{EventCamera, Track, Vertex, VertexSize};
 
 
 // XXX Check for any masking by an UI element.
-// XXX Sort tracks, vertices etc. and pretty display using an UI window (with a trigger/event).
 // XXX Indicate vertex medium.
 
 pub struct PickingPlugin;
@@ -18,22 +18,16 @@ impl Plugin for PickingPlugin {
     }
 }
 
-#[derive(Event)]
-pub struct PickingEvent (Vec<(Track, Vec<Vertex>)>);
-
-#[derive(Component)]
-struct PickingText;
-
 fn cursor_selection(
     window: Query<&mut Window, With<PrimaryWindow>>,
     camera: Query<(&Camera, &GlobalTransform), With<EventCamera>>,
     tracks: Query<&Track>,
     vertices: Query<(&Vertex, &VertexSize, &Transform, &Parent)>,
-    text: Query<Entity, With<PickingText>>,
+    ui_event: Query<Entity, With<UiEvent>>,
     mut commands: Commands,
 ) {
-    if !text.is_empty() {
-        commands.entity(text.single()).despawn_recursive();
+    if !ui_event.is_empty() {
+        commands.entity(ui_event.single()).despawn_recursive();
     }
     if window.is_empty() || camera.is_empty() || tracks.is_empty() || vertices.is_empty() {
         return
@@ -59,30 +53,5 @@ fn cursor_selection(
         return
     }
 
-    let text: Vec<_> = matches
-        .iter()
-        .map(|vertex| format!("{:?}", vertex))
-        .collect();
-    let text = text.join("\n");
-
-    commands.spawn((
-        PickingText,
-        TextBundle {
-            text: Text::from_section(
-                text,
-                TextStyle {
-                    font_size: 12.0,
-                    color: Color::WHITE,
-                    ..default()
-                },
-            ),
-            style: Style {
-                position_type: PositionType::Absolute,
-                left: Val::Px(cursor.x + 12.0),
-                top: Val::Px(cursor.y + 12.0),
-                ..default()
-            },
-            ..default()
-        },
-    ));
+    UiEvent::spawn(&mut commands, cursor, matches);
 }

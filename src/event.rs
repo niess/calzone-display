@@ -38,18 +38,18 @@ pub struct Events {
 #[derive(Component)]
 struct Event (usize);
 
-#[derive(Component, Debug)]
-struct Track {
-    tid: i32,
-    parent: i32,
-    pid: i32,
-    creator: String,
+#[derive(Component)]
+pub struct Track {
+    pub tid: i32,
+    pub parent: i32,
+    pub pid: i32,
+    pub creator: String,
 }
 
-#[derive(Component, Debug)]
-struct Vertex {
-    energy: f32,
-    process: String,
+#[derive(Component)]
+pub struct Vertex {
+    pub energy: f32,
+    pub process: String,
 }
 
 #[derive(Component)]

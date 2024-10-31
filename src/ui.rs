@@ -2,10 +2,12 @@ use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
 use crate::app::Removable;
 
+mod event;
 mod geometry;
 mod meters;
 mod nord;
 
+pub use event::UiEvent;
 pub use geometry::TargetEvent;
 pub use meters::Meters;
 pub use nord::NORD;
@@ -28,6 +30,8 @@ enum WindowLocation {
     TopRight,
     BottomLeft,
     BottomRight,
+    Relative,
+    Cursor(Vec2),
 }
 
 impl UiWindow {
@@ -71,11 +75,22 @@ impl UiWindow {
             WindowLocation::TopRight => (Val::Px(5.0), Val::Auto, Val::Auto, Val::Px(5.0)),
             WindowLocation::BottomLeft => (Val::Auto, Val::Px(5.0), Val::Px(5.0), Val::Auto),
             WindowLocation::BottomRight => (Val::Auto, Val::Auto, Val::Px(5.0), Val::Px(5.0)),
+            WindowLocation::Relative => (Val::Auto, Val::Auto, Val::Auto, Val::Auto),
+            WindowLocation::Cursor(cursor) => (
+                Val::Px(cursor.y + 12.0),
+                Val::Px(cursor.x + 12.0),
+                Val::Auto,
+                Val::Auto,
+            ),
+        };
+        let position_type = match location {
+            WindowLocation::Relative => PositionType::Relative,
+            _ => PositionType::Absolute,
         };
 
         let mut window = commands.spawn(NodeBundle {
             style: Style {
-                position_type: PositionType::Absolute,
+                position_type,
                 top,
                 left,
                 bottom,
