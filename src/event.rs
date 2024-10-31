@@ -6,6 +6,7 @@ use crate::app::{AppState, Removable};
 mod colours;
 mod data;
 mod numpy;
+mod picking;
 
 pub use data::Events as EventsData;
 pub use numpy::initialise;
@@ -17,6 +18,7 @@ impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(PolylinePlugin)
+            .add_plugins(picking::PickingPlugin)
             .init_resource::<Events>()
             .add_systems(Update, (
                     update_events,
@@ -49,6 +51,9 @@ struct Vertex {
     energy: f32,
     process: String,
 }
+
+#[derive(Component)]
+struct VertexSize (f32);
 
 fn update_events(
     mut events: ResMut<Events>,
@@ -131,6 +136,7 @@ fn draw_event(
                                 for vertex in track.vertices[1..n].iter() {
                                     parent.spawn((
                                         Vertex::from(vertex),
+                                        VertexSize(vertex_size),
                                         PbrBundle {
                                             material: vertex_material.clone(),
                                             mesh: vertex_mesh.clone(),
