@@ -32,6 +32,7 @@ pub struct Vertex {
     pub energy: f32,
     pub position: Vec3,
     pub process: String,
+    pub volume: String,
 }
 
 static EVENTS: Mutex<Option<Events>> = Mutex::new(None);
@@ -114,7 +115,9 @@ impl From<CVertex> for Vertex {
         );
         let process = CStr::from_bytes_until_nul(&vertex.process).unwrap();
         let process = process.to_str().unwrap().to_string();
-        Self { energy, position, process }
+        let volume = CStr::from_bytes_until_nul(&vertex.volume).unwrap();
+        let volume = volume.to_str().unwrap().to_string();
+        Self { energy, position, process, volume }
     }
 }
 

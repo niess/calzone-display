@@ -50,6 +50,7 @@ pub struct Track {
 pub struct Vertex {
     pub energy: f32,
     pub process: String,
+    pub volume: String,
 }
 
 #[derive(Component)]
@@ -86,7 +87,7 @@ fn draw_event(
                     .despawn_recursive();
             }
 
-            // Spawan the current event.
+            // Spawn the current event.
             commands
                 .spawn((
                     Event (event.index),
@@ -133,7 +134,7 @@ fn draw_event(
                             ))
                             .with_children(|parent| {
                                 let n = track.vertices.len();
-                                for vertex in track.vertices[1..n].iter() {
+                                for vertex in track.vertices[0..n].iter() {
                                     parent.spawn((
                                         Vertex::from(vertex),
                                         VertexSize(vertex_size),
@@ -195,6 +196,7 @@ impl<'a> From<&'a data::Vertex> for Vertex {
         Self {
             energy: vertex.energy,
             process: vertex.process.clone(),
+            volume: vertex.volume.clone(),
         }
     }
 }

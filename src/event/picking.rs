@@ -8,7 +8,6 @@ use super::{EventCamera, Track, Vertex, VertexSize};
 
 
 // XXX Check for any masking by an UI element.
-// XXX Indicate vertex medium.
 
 pub struct PickingPlugin;
 

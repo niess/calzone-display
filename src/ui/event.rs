@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 use crate::event::{Track, Vertex};
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+
+// XXX Indicate current event.
 
 #[derive(Component)]
 pub struct UiEvent;
@@ -34,6 +36,136 @@ impl UiEvent {
 
         let mut windows = Vec::new();
         for data in tracks.iter() {
+            fn spawn_column<'a, T>(
+                commands: &'a mut Commands,
+                entries: &[T]
+            ) -> Entity
+            where
+                T: AsRef<str>,
+            {
+                commands
+                    .spawn(
+                        NodeBundle {
+                            style: Style {
+                                display: Display::Flex,
+                                flex_direction: FlexDirection::Column,
+                                padding: UiRect::all(Val::Px(4.0)),
+                                ..default()
+                            },
+                            ..default()
+                        }
+                    )
+                    .with_children(|parent| {
+                        for entry in entries.iter() {
+                            let entry: &str = entry.as_ref();
+                            parent.spawn(super::UiText::new_bundle(entry));
+                        }
+                    }).id()
+            }
+
+            let mut labels: Vec<&'static str> = Vec::new();
+            let mut values: Vec<String> = Vec::new();
+
+            if data.track.tid > 1 {
+                labels.push("creator");
+                values.push(
+                    format!("{} [{}]", data.track.creator, data.track.parent)
+                );
+            };
+
+            fn uformat(energy: f32) -> String {
+                let scale = energy.log10() as i64 + 6;
+                if scale <= 2 {
+                    format!("{:.3} eV", energy * 1E+06)
+                } else if scale <= 5 {
+                    format!("{:.3} keV", energy * 1E+03)
+                } else if scale <= 8 {
+                    format!("{:.3} MeV", energy)
+                } else if scale <= 11 {
+                    format!("{:.3} GeV", energy * 1E-03)
+                } else if scale <= 14 {
+                    format!("{:.3} TeV", energy * 1E-06)
+                } else if scale <= 17 {
+                    format!("{:.3} PeV", energy * 1E-09)
+                } else if scale <= 20 {
+                    format!("{:.3} EeV", energy * 1E-12)
+                } else {
+                    format!("{:.3} ZeV", energy * 1E-15)
+                }
+            }
+
+            let n = data.vertices.len();
+            let e0 = data.vertices[0].energy;
+            let e1 = data.vertices[n - 1].energy;
+            if e0 == e1 {
+                labels.push("energy");
+                values.push(uformat(e0));
+            } else {
+                labels.push("energies");
+                values.push(format!("{} to {}", uformat(e0), uformat(e1)));
+            }
+
+            fn dedup(v: &mut Vec<&str>) { // Preserves the initial order.
+                let mut set = HashSet::new();
+                v.retain(|x| set.insert(*x));
+            }
+
+            let mut processes: Vec<&str> = data.vertices
+                .iter()
+                .map(|vertex| vertex.process.as_str())
+                .filter(|process| !process.is_empty())
+                .collect();
+
+            dedup(&mut processes);
+
+            if processes.len() == 1 {
+                labels.push("process");
+                values.push(processes[0].to_string());
+            } else if processes.len() > 1 {
+                labels.push("processes");
+                if processes.len() == 2 {
+                    values.push(format!("{} and {}", processes[0], processes[1]))
+                } else {
+                    values.push(processes.join(", "));
+                }
+            }
+
+            let mut volumes: Vec<&str> = data.vertices
+                .iter()
+                .map(|vertex| vertex.volume.as_str())
+                .filter(|volume| !volume.is_empty())
+                .collect();
+
+            dedup(&mut volumes);
+
+            if volumes.len() == 1 {
+                labels.push("volume");
+                values.push(volumes[0].to_string());
+            } else if volumes.len() > 1 {
+                labels.push("processes");
+                if volumes.len() == 2 {
+                    values.push(format!("{} and {}", volumes[0], volumes[1]))
+                } else {
+                    values.push(volumes.join(", "));
+                }
+            }
+
+            let labels = spawn_column(commands, &labels);
+            let values = spawn_column(commands, &values);
+
+            let mut content = commands.spawn(
+                NodeBundle {
+                    style: Style {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        ..default()
+                    },
+                    ..default()
+                },
+            );
+            content.push_children(&[labels, values]);
+            let content = content.id();
+
             let particle = match data.track.pid {
                 11 => Cow::Borrowed("e-"),
                 -11 => Cow::Borrowed("e+"),
@@ -42,22 +174,19 @@ impl UiEvent {
                 22 => Cow::Borrowed("gamma"),
                 _ => Cow::Owned(format!("[{}]", data.track.pid)),
             };
-            let parent = if data.track.tid == 1 {
-                "".to_owned()
-            } else {
-                format!(" (created by [{}])", data.track.parent)
-            };
             let title = format!(
-                "{}[{}]{}",
+                "{} [{}]",
                 particle,
                 data.track.tid,
-                parent,
             );
-            let window = super::UiWindow::new(
+            let mut window = super::UiWindow::new(
                 title.as_str(),
                 super::WindowLocation::Relative,
                 commands
-            ).id();
+            );
+            window.add_child(content);
+            let window = window.id();
+
             let mut node = commands.spawn(NodeBundle {
                 style: Style {
                     padding: UiRect::all(Val::Px(2.0)),
@@ -77,7 +206,7 @@ impl UiEvent {
                     top: Val::Px(cursor.y + 12.0),
                     left: Val::Px(cursor.x + 12.0),
                     display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 },
                 ..default()
