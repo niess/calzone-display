@@ -52,5 +52,5 @@ fn cursor_selection(
         return
     }
 
-    UiEvent::spawn(&mut commands, cursor, matches);
+    UiEvent::spawn_info(&mut commands, cursor, matches);
 }

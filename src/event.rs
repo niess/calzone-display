@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
+use crate::ui::UiEvent;
+use std::borrow::Cow;
 
 mod colours;
 mod data;
@@ -9,6 +11,8 @@ mod numpy;
 mod picking;
 
 pub use data::Events as EventsData;
+pub use data::Event as EventData;
+pub use data::Track as TrackData;
 pub use numpy::initialise;
 
 
@@ -31,12 +35,12 @@ impl Plugin for EventPlugin {
 
 #[derive(Default, Resource)]
 pub struct Events {
-    data: data::Events,
-    index: usize,
+    pub data: data::Events,
+    pub index: usize,
 }
 
 #[derive(Component)]
-struct Event (usize);
+pub struct Event;
 
 #[derive(Component)]
 pub struct Track {
@@ -56,9 +60,7 @@ pub struct Vertex {
 #[derive(Component)]
 struct VertexSize (f32);
 
-fn update_events(
-    mut events: ResMut<Events>,
-) {
+fn update_events(mut events: ResMut<Events>) {
     if let Some(data) = data::Events::take() {
         *events = Events {
             data,
@@ -90,7 +92,7 @@ fn draw_event(
             // Spawn the current event.
             commands
                 .spawn((
-                    Event (event.index),
+                    Event,
                     SpatialBundle::default(),
                     Removable,
                 ))
@@ -152,6 +154,7 @@ fn draw_event(
                           });
                     }
                 });
+            UiEvent::update_status(&events, &mut commands);
         }
     }
 }
@@ -223,6 +226,28 @@ impl EventBundle {
                 ..default()
             },
             RenderLayers::layer(EVENT_LAYER),
+        )
+    }
+}
+
+impl Track {
+    pub fn label(&self) -> String {
+        Self::label_from_parts(self.tid, self.pid)
+    }
+
+    pub fn label_from_parts(tid: i32, pid: i32) -> String {
+        let particle = match pid {
+            11 => Cow::Borrowed("e-"),
+            -11 => Cow::Borrowed("e+"),
+            13 => Cow::Borrowed("mu-"),
+            -13 => Cow::Borrowed("mu+"),
+            22 => Cow::Borrowed("gamma"),
+            _ => Cow::Owned(format!("[{}]", pid)),
+        };
+        format!(
+            "{} [{}]",
+            particle,
+            tid,
         )
     }
 }

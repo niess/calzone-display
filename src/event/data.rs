@@ -16,16 +16,17 @@ use super::numpy::PyArray;
 pub struct Events (pub HashMap<usize, Event>);
 
 pub struct Event {
-    pub index: usize,
     pub tracks: HashMap<i32, Track>
 }
 
 pub struct Track {
     pub tid: i32,
     pub parent: i32,
+    pub daughters: Vec<i32>,
     pub pid: i32,
     pub creator: String,
     pub vertices: Vec<Vertex>,
+    pub expanded: bool,
 }
 
 pub struct Vertex {
@@ -53,7 +54,7 @@ impl Events {
                     event.tracks.insert(track.tid, track.into());
                 })
                 .or_insert_with(|| {
-                    let mut event = Event::new(track.event);
+                    let mut event = Event::new();
                     event.tracks.insert(track.tid, track.into());
                     event
                 });
@@ -72,6 +73,29 @@ impl Events {
                 });
         }
 
+        for event in events.values_mut() {
+            let mut daughters = HashMap::<i32, Vec<i32>>::new();
+            for track in event.tracks.values() {
+                if track.parent <= 0 {
+                    continue
+                }
+                daughters
+                    .entry(track.parent)
+                    .and_modify(|daughters| {
+                        daughters.push(track.tid);
+                    })
+                    .or_insert_with(|| vec![track.tid]);
+            }
+            for (tid, mut daughters) in daughters.drain() {
+                event.tracks
+                    .entry(tid)
+                    .and_modify(|track| {
+                        daughters.sort();
+                        track.daughters = daughters
+                    });
+            }
+        }
+
         *EVENTS.lock().unwrap() = Some(Self(events));
 
         Ok(())
@@ -83,23 +107,27 @@ impl Events {
 }
 
 impl Event {
-    fn new(index: usize) -> Self {
+    fn new() -> Self {
         let tracks = HashMap::new();
-        Self { index, tracks }
+        Self { tracks }
     }
 }
 
 impl From<CTrack> for Track {
     fn from(track: CTrack) -> Self {
+        let daughters = Vec::new();
         let creator = CStr::from_bytes_until_nul(&track.creator).unwrap();
         let creator = creator.to_str().unwrap().to_string();
         let vertices = Vec::new();
+        let expanded = true;
         Self {
             tid: track.tid,
             parent: track.parent,
+            daughters,
             pid: track.pid,
             creator,
             vertices,
+            expanded,
         }
     }
 }

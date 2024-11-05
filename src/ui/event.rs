@@ -1,16 +1,14 @@
 use bevy::prelude::*;
-use crate::event::{Track, Vertex};
-use std::borrow::Cow;
+use crate::event::{Event, EventData, Events, Track, TrackData, Vertex};
 use std::collections::{HashMap, HashSet};
+use super::UiText;
 
-
-// XXX Indicate current event.
 
 #[derive(Component)]
 pub struct UiEvent;
 
 impl UiEvent {
-    pub fn spawn(
+    pub fn spawn_info(
         commands: &mut Commands,
         cursor: Vec2,
         matches: Vec<(&Track, &Vertex)>
@@ -58,7 +56,7 @@ impl UiEvent {
                     .with_children(|parent| {
                         for entry in entries.iter() {
                             let entry: &str = entry.as_ref();
-                            parent.spawn(super::UiText::new_bundle(entry));
+                            parent.spawn(UiText::new_bundle(entry));
                         }
                     }).id()
             }
@@ -166,19 +164,7 @@ impl UiEvent {
             content.push_children(&[labels, values]);
             let content = content.id();
 
-            let particle = match data.track.pid {
-                11 => Cow::Borrowed("e-"),
-                -11 => Cow::Borrowed("e+"),
-                13 => Cow::Borrowed("mu-"),
-                -13 => Cow::Borrowed("mu+"),
-                22 => Cow::Borrowed("gamma"),
-                _ => Cow::Owned(format!("[{}]", data.track.pid)),
-            };
-            let title = format!(
-                "{} [{}]",
-                particle,
-                data.track.tid,
-            );
+            let title = data.track.label();
             let mut window = super::UiWindow::new(
                 title.as_str(),
                 super::WindowLocation::Relative,
@@ -213,5 +199,74 @@ impl UiEvent {
             },
         ));
         node.push_children(&windows);
+    }
+
+    pub fn update_status(
+        events: &Events,
+        commands: &mut Commands,
+    ) {
+        let content = commands.spawn(NodeBundle {
+            style: Style {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        }).id();
+
+        fn add_button(
+            depth: usize,
+            event: &EventData,
+            track: &TrackData,
+            content: Entity,
+            commands: &mut Commands,
+        ) {
+            let qualifier = if (track.daughters.len() > 0) && !track.expanded {
+                ".."
+            } else {
+                ""
+            };
+            let label = Track::label_from_parts(track.tid, track.pid);
+            let label = format!("{}{}{}", "  ".repeat(depth), label, qualifier);
+            let button = TrackButton::spawn_button(&label, track.tid, commands);
+            commands
+                .entity(content)
+                .add_child(button);
+            if track.expanded {
+                for daughter in track.daughters.iter() {
+                    let daughter = &event.tracks[daughter];
+                    add_button(depth + 1, event, daughter, content, commands);
+                }
+            }
+        }
+
+        let event = &events.data.0[&events.index];
+        add_button(0, event, &event.tracks[&1], content, commands);
+
+        if events.data.0.len() == 0 {
+            return
+        }
+        let title = format!("Event {}", events.index);
+        let mut window = super::UiWindow::new(
+            title.as_str(),
+            super::WindowLocation::BottomRight,
+            commands
+        );
+        window.insert(Event);
+        window.add_child(content);
+    }
+}
+
+#[derive(Component)]
+struct TrackButton(i32);
+
+impl TrackButton {
+    fn spawn_button(
+        message: &str,
+        tid: i32,
+        commands: &mut Commands,
+    ) -> Entity {
+        let component = TrackButton(tid);
+        UiText::spawn_button(component, message, commands)
     }
 }
