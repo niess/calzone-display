@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
+use crate::drone::Drone;
 use crate::ui::UiEvent;
 use std::borrow::Cow;
 
@@ -154,7 +155,7 @@ fn draw_event(
                           });
                     }
                 });
-            UiEvent::update_status(&events, &mut commands);
+            UiEvent::spawn_status(&events, &mut commands);
         }
     }
 }
@@ -221,6 +222,7 @@ impl EventBundle {
                 },
                 projection: PerspectiveProjection {
                     fov,
+                    near: Drone::NEAR,
                     ..default()
                 }.into(),
                 ..default()

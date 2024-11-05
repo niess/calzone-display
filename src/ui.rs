@@ -8,7 +8,6 @@ mod meters;
 mod nord;
 
 pub use event::UiEvent;
-pub use geometry::TargetEvent;
 pub use meters::Meters;
 pub use nord::NORD;
 
@@ -17,6 +16,7 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        event::build(app);
         geometry::build(app);
     }
 }

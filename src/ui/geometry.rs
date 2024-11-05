@@ -1,15 +1,12 @@
 use bevy::prelude::*;
 use crate::app::AppState;
+use crate::drone::TargetEvent;
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use super::{UiText, UiWindow, WindowLocation};
 
 
-#[derive(Event)]
-pub struct TargetEvent(pub Entity);
-
 pub fn build(app: &mut App) {
     app
-        .add_event::<TargetEvent>()
         .add_event::<UpdateEvent>()
         .add_systems(OnEnter(AppState::Display), setup_window.after(GeometrySet))
         .add_systems(Update, (
@@ -59,6 +56,7 @@ fn on_button(
     interactions: Query<(&Interaction, &VolumeButton, &Children), Changed<Interaction>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut text_query: Query<&mut Text>,
+    volumes: Query<&Volume>,
     mut ev_target: EventWriter<TargetEvent>,
     mut ev_update: EventWriter<UpdateEvent>,
 ) {
@@ -67,7 +65,8 @@ fn on_button(
         match *interaction {
             Interaction::Pressed => {
                 if keyboard_input.pressed(KeyCode::ShiftLeft) {
-                    ev_target.send(TargetEvent(button.0));
+                    let volume = volumes.get(button.0).unwrap();
+                    ev_target.send(TargetEvent(volume.target()));
                 } else {
                     ev_update.send(UpdateEvent(button.0));
                 }

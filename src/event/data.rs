@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::drone::Drone;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -113,13 +114,36 @@ impl Event {
     }
 }
 
+impl Track {
+    pub fn target(&self) -> Transform {
+        let mut min = Vec3::MAX;
+        let mut max = Vec3::MIN;
+        for vertex in self.vertices.iter() {
+            min = min.min(vertex.position);
+            max = max.max(vertex.position);
+        }
+        let half_width = 0.5 * (max - min);
+        let [mut dx, mut dy, _] = half_width.as_ref();
+        if dx.abs() < Drone::NEAR {
+            dx = Drone::NEAR.copysign(dx);
+        }
+        if dy.abs() < Drone::NEAR {
+            dy = Drone::NEAR.copysign(dy);
+        }
+        let origin = 0.5 * (min + max);
+        let start_position = origin + Vec3::new(-1.5 * dx, -1.5 * dy, 0.0);
+        Transform::from_translation(start_position)
+            .looking_at(origin, Vec3::Z)
+    }
+}
+
 impl From<CTrack> for Track {
     fn from(track: CTrack) -> Self {
         let daughters = Vec::new();
         let creator = CStr::from_bytes_until_nul(&track.creator).unwrap();
         let creator = creator.to_str().unwrap().to_string();
         let vertices = Vec::new();
-        let expanded = true;
+        let expanded = false;
         Self {
             tid: track.tid,
             parent: track.parent,

@@ -6,7 +6,7 @@ use crate::app::{AppState, Removable};
 use crate::event::{EventBundle, EventCamera};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::sky::{SkyBundle, SkyCamera};
-use crate::ui::{Meters, TargetEvent};
+use crate::ui::Meters;
 
 
 pub struct DronePlugin;
@@ -14,6 +14,7 @@ pub struct DronePlugin;
 impl Plugin for DronePlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_event::<TargetEvent>()
             .add_systems(OnEnter(AppState::Display), Drone::spawn.after(GeometrySet))
             .add_systems(Update, (
                 on_mouse_button,
@@ -35,6 +36,9 @@ pub struct Drone {
 
 #[derive(Component)]
 pub struct DroneCamera;
+
+#[derive(Event)]
+pub struct TargetEvent(pub Transform);
 
 impl Drone {
     pub fn spawn(
@@ -59,6 +63,7 @@ impl Drone {
                     Camera3dBundle {
                         projection: PerspectiveProjection {
                             fov: Drone::FOV_MAX,
+                            near: Drone::NEAR,
                             ..default()
                         }.into(),
                         ..default()
@@ -215,13 +220,11 @@ fn on_keyboard(
 
 fn on_target(
     mut events: EventReader<TargetEvent>,
-    mut volumes: Query<&mut Volume>,
     mut transform: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
     for event in events.read() {
-        let volume = volumes.get_mut(event.0).unwrap();
         let (mut transform, mut velocity) = transform.single_mut();
-        *transform = volume.target();
+        *transform = event.0;
         let magnitude = velocity.linvel.length();
         if magnitude != 0.0 {
             velocity.linvel = magnitude * transform.forward();
@@ -246,6 +249,8 @@ impl Drone {
 
     const VELOCITY_MIN: f32 = 0.01;
     const VELOCITY_MAX: f32 = 1000.0;
+
+    pub const NEAR: f32 = 1E-02;
 
     fn new(commands: &mut Commands) -> Self {
         let velocity = 1.0;

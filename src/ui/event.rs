@@ -1,8 +1,19 @@
 use bevy::prelude::*;
+use crate::app::AppState;
+use crate::drone::TargetEvent;
 use crate::event::{Event, EventData, Events, Track, TrackData, Vertex};
 use std::collections::{HashMap, HashSet};
 use super::UiText;
 
+
+pub fn build(app: &mut App) {
+    app
+        .add_event::<UpdateEvent>()
+        .add_systems(Update, (
+            on_button,
+            on_update.after(on_button)
+        ).run_if(in_state(AppState::Display)));
+}
 
 #[derive(Component)]
 pub struct UiEvent;
@@ -201,53 +212,29 @@ impl UiEvent {
         node.push_children(&windows);
     }
 
-    pub fn update_status(
+    pub fn spawn_status(
         events: &Events,
         commands: &mut Commands,
     ) {
-        let content = commands.spawn(NodeBundle {
-            style: Style {
-                display: Display::Flex,
-                flex_direction: FlexDirection::Column,
+        let content = commands.spawn((
+            EventContent,
+            NodeBundle {
+                style: Style {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        }).id();
+        )).id();
 
-        fn add_button(
-            depth: usize,
-            event: &EventData,
-            track: &TrackData,
-            content: Entity,
-            commands: &mut Commands,
-        ) {
-            let qualifier = if (track.daughters.len() > 0) && !track.expanded {
-                ".."
-            } else {
-                ""
-            };
-            let label = Track::label_from_parts(track.tid, track.pid);
-            let label = format!("{}{}{}", "  ".repeat(depth), label, qualifier);
-            let button = TrackButton::spawn_button(&label, track.tid, commands);
-            commands
-                .entity(content)
-                .add_child(button);
-            if track.expanded {
-                for daughter in track.daughters.iter() {
-                    let daughter = &event.tracks[daughter];
-                    add_button(depth + 1, event, daughter, content, commands);
-                }
-            }
-        }
-
-        let event = &events.data.0[&events.index];
-        add_button(0, event, &event.tracks[&1], content, commands);
+        update_content(content, events, commands);
 
         if events.data.0.len() == 0 {
             return
         }
         let title = format!("Event {}", events.index);
-        let mut window = super::UiWindow::new(
+        let mut window = super::UiWindow::new( // XXX Move besides volumes.
             title.as_str(),
             super::WindowLocation::BottomRight,
             commands
@@ -255,6 +242,49 @@ impl UiEvent {
         window.insert(Event);
         window.add_child(content);
     }
+}
+
+#[derive(Component)]
+struct EventContent;
+
+fn clear_content(content: Entity, commands: &mut Commands) {
+    let mut content = commands.entity(content);
+    content.despawn_descendants();
+}
+
+fn update_content(
+    content: Entity,
+    events: &Events,
+    commands: &mut Commands,
+) {
+    fn add_button(
+        depth: usize,
+        event: &EventData,
+        track: &TrackData,
+        content: Entity,
+        commands: &mut Commands,
+    ) {
+        let qualifier = if (track.daughters.len() > 0) && !track.expanded {
+            ".."
+        } else {
+            ""
+        };
+        let label = Track::label_from_parts(track.tid, track.pid);
+        let label = format!("{}{}{}", "  ".repeat(depth), label, qualifier);
+        let button = TrackButton::spawn_button(&label, track.tid, commands);
+        commands
+            .entity(content)
+            .add_child(button);
+        if track.expanded {
+            for daughter in track.daughters.iter() {
+                let daughter = &event.tracks[daughter];
+                add_button(depth + 1, event, daughter, content, commands);
+            }
+        }
+    }
+
+    let event = &events.data.0[&events.index];
+    add_button(0, event, &event.tracks[&1], content, commands);
 }
 
 #[derive(Component)]
@@ -268,5 +298,60 @@ impl TrackButton {
     ) -> Entity {
         let component = TrackButton(tid);
         UiText::spawn_button(component, message, commands)
+    }
+}
+
+#[derive(Event)]
+struct UpdateEvent(i32);
+
+fn on_button(
+    interactions: Query<(&Interaction, &TrackButton, &Children), Changed<Interaction>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    events: Res<Events>,
+    mut text_query: Query<&mut Text>,
+    mut ev_target: EventWriter<TargetEvent>,
+    mut ev_update: EventWriter<UpdateEvent>,
+) {
+    for (interaction, button, children) in interactions.iter() {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        match *interaction {
+            Interaction::Pressed => {
+                if keyboard_input.pressed(KeyCode::ShiftLeft) {
+                    let event = &events.data.0[&events.index];
+                    let track = &event.tracks[&button.0];
+                    ev_target.send(TargetEvent(track.target()));
+                } else {
+                    ev_update.send(UpdateEvent(button.0));
+                }
+                text.sections[0].style.color = UiText::PRESSED.into();
+            }
+            Interaction::Hovered => {
+                text.sections[0].style.color = UiText::HOVERED.into();
+            }
+            Interaction::None => {
+                text.sections[0].style.color = UiText::NORMAL.into();
+            }
+        }
+    }
+}
+
+fn on_update(
+    mut commands: Commands,
+    mut reader: EventReader<UpdateEvent>,
+    content: Query<Entity, With<EventContent>>,
+    mut events: ResMut<Events>,
+) {
+    for tid in reader.read() {
+        let tid = tid.0;
+        let index = events.index;
+        let event = events.data.0.get_mut(&index).unwrap();
+        event.tracks
+            .entry(tid)
+            .and_modify(|track| {
+                track.expanded = !track.expanded;
+            });
+        let content = content.single();
+        clear_content(content, &mut commands);
+        update_content(content, &events, &mut commands);
     }
 }
