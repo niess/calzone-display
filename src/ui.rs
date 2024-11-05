@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
-use crate::app::Removable;
+use crate::app::{AppState, Removable};
+use crate::geometry::GeometrySet;
 
 mod event;
 mod geometry;
@@ -16,8 +17,31 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(OnEnter(AppState::Display), PrimaryMenu::spawn.after(GeometrySet));
         event::build(app);
         geometry::build(app);
+    }
+}
+
+#[derive(Component)]
+pub struct PrimaryMenu;
+
+impl PrimaryMenu {
+    fn spawn(mut commands: Commands) {
+        let [top, left, bottom, right] = WindowLocation::TopLeft.offsets();
+        commands.spawn((
+            PrimaryMenu,
+            Removable,
+            NodeBundle {
+                style: Style {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    top, left, bottom, right,
+                    ..default()
+                },
+                ..default()
+            },
+        ));
     }
 }
 
@@ -32,6 +56,26 @@ enum WindowLocation {
     BottomRight,
     Relative,
     Cursor(Vec2),
+}
+
+impl WindowLocation {
+    const OFFSET: Val = Val::Px(5.0);
+
+    pub fn offsets(&self) -> [Val; 4] {
+        match self {
+            Self::TopLeft => [Self::OFFSET, Self::OFFSET, Val::Auto, Val::Auto],
+            Self::TopRight => [Self::OFFSET, Val::Auto, Val::Auto, Self::OFFSET],
+            Self::BottomLeft => [Val::Auto, Self::OFFSET, Self::OFFSET, Val::Auto],
+            Self::BottomRight => [Val::Auto, Val::Auto, Self::OFFSET, Self::OFFSET],
+            Self::Relative => [Val::Auto, Val::Auto, Val::Auto, Val::Auto],
+            Self::Cursor(cursor) => [
+                Val::Px(cursor.y + 12.0),
+                Val::Px(cursor.x + 12.0),
+                Val::Auto,
+                Val::Auto,
+            ],
+        }
+    }
 }
 
 impl UiWindow {
@@ -70,19 +114,7 @@ impl UiWindow {
         capsule.add_child(title);
         let capsule = capsule.id();
 
-        let (top, left, bottom, right) = match location {
-            WindowLocation::TopLeft => (Val::Px(5.0), Val::Px(5.0), Val::Auto, Val::Auto),
-            WindowLocation::TopRight => (Val::Px(5.0), Val::Auto, Val::Auto, Val::Px(5.0)),
-            WindowLocation::BottomLeft => (Val::Auto, Val::Px(5.0), Val::Px(5.0), Val::Auto),
-            WindowLocation::BottomRight => (Val::Auto, Val::Auto, Val::Px(5.0), Val::Px(5.0)),
-            WindowLocation::Relative => (Val::Auto, Val::Auto, Val::Auto, Val::Auto),
-            WindowLocation::Cursor(cursor) => (
-                Val::Px(cursor.y + 12.0),
-                Val::Px(cursor.x + 12.0),
-                Val::Auto,
-                Val::Auto,
-            ),
-        };
+        let [top, left, bottom, right] = location.offsets();
         let position_type = match location {
             WindowLocation::Relative => PositionType::Relative,
             _ => PositionType::Absolute,

@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 use crate::app::AppState;
 use crate::drone::TargetEvent;
-use crate::geometry::{GeometrySet, RootVolume, Volume};
-use super::{UiText, UiWindow, WindowLocation};
+use crate::geometry::{RootVolume, Volume};
+use super::{PrimaryMenu, UiText, UiWindow, WindowLocation};
 
 
 pub fn build(app: &mut App) {
     app
         .add_event::<UpdateEvent>()
-        .add_systems(OnEnter(AppState::Display), setup_window.after(GeometrySet))
+        .add_systems(OnEnter(AppState::Display), setup_window.after(PrimaryMenu::spawn))
         .add_systems(Update, (
             on_button,
             on_update.after(on_button)
@@ -22,6 +22,7 @@ struct VolumeContent;
 pub fn setup_window(
     mut commands: Commands,
     root: Query<Entity, With<RootVolume>>,
+    primary_menu: Query<Entity, With<PrimaryMenu>>,
     children: Query<&Children, With<Volume>>,
     volumes: Query<&Volume>,
 ) {
@@ -37,8 +38,13 @@ pub fn setup_window(
         },
     )).id();
 
-    let mut window = UiWindow::new("Volumes", WindowLocation::TopLeft, &mut commands);
+    let mut window = UiWindow::new("Volumes", WindowLocation::Relative, &mut commands);
     window.add_child(content);
+    let window = window.id();
+
+    commands
+        .entity(primary_menu.single())
+        .add_child(window);
 
     update_window(
         content,

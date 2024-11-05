@@ -3,7 +3,7 @@ use bevy::render::view::RenderLayers;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::drone::Drone;
-use crate::ui::UiEvent;
+use crate::ui::{PrimaryMenu, UiEvent};
 use std::borrow::Cow;
 
 mod colours;
@@ -75,6 +75,7 @@ const EVENT_LAYER: usize = 2;
 fn draw_event(
     events: Res<Events>,
     current_event: Query<Entity, With<Event>>,
+    primary_menu: Query<Entity, With<PrimaryMenu>>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -155,7 +156,7 @@ fn draw_event(
                           });
                     }
                 });
-            UiEvent::spawn_status(&events, &mut commands);
+            UiEvent::spawn_status(&events, primary_menu, &mut commands);
         }
     }
 }

@@ -3,7 +3,7 @@ use crate::app::AppState;
 use crate::drone::TargetEvent;
 use crate::event::{Event, EventData, Events, Track, TrackData, Vertex};
 use std::collections::{HashMap, HashSet};
-use super::UiText;
+use super::{PrimaryMenu, UiText};
 
 
 pub fn build(app: &mut App) {
@@ -214,6 +214,7 @@ impl UiEvent {
 
     pub fn spawn_status(
         events: &Events,
+        primary_menu: Query<Entity, With<PrimaryMenu>>,
         commands: &mut Commands,
     ) {
         let content = commands.spawn((
@@ -233,14 +234,19 @@ impl UiEvent {
         if events.data.0.len() == 0 {
             return
         }
-        let title = format!("Event {}", events.index);
-        let mut window = super::UiWindow::new( // XXX Move besides volumes.
+        let title = format!("Event [{}]", events.index);
+        let mut window = super::UiWindow::new(
             title.as_str(),
-            super::WindowLocation::BottomRight,
+            super::WindowLocation::Relative,
             commands
         );
         window.insert(Event);
         window.add_child(content);
+        let window = window.id();
+
+        commands
+            .entity(primary_menu.single())
+            .add_child(window);
     }
 }
 
