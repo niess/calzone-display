@@ -24,6 +24,9 @@ impl Plugin for UiPlugin {
 }
 
 #[derive(Component)]
+pub struct UiRoot;
+
+#[derive(Component)]
 pub struct PrimaryMenu;
 
 impl PrimaryMenu {
@@ -31,6 +34,7 @@ impl PrimaryMenu {
         let [top, left, bottom, right] = WindowLocation::TopLeft.offsets();
         commands.spawn((
             PrimaryMenu,
+            UiRoot,
             Removable,
             NodeBundle {
                 style: Style {

@@ -3,11 +3,9 @@ use bevy::math::Vec3A;
 use bevy::math::bounding::{BoundingSphere, RayCast3d};
 use bevy::window::PrimaryWindow;
 use crate::app::AppState;
-use crate::ui::UiEvent;
+use crate::ui::{UiEvent, UiRoot};
 use super::{EventCamera, Track, Vertex, VertexSize};
 
-
-// XXX Check for any masking by an UI element.
 
 pub struct PickingPlugin;
 
@@ -19,6 +17,7 @@ impl Plugin for PickingPlugin {
 
 fn cursor_selection(
     window: Query<&mut Window, With<PrimaryWindow>>,
+    masking: Query<(&Node, &GlobalTransform), With<UiRoot>>,
     camera: Query<(&Camera, &GlobalTransform), With<EventCamera>>,
     tracks: Query<&Track>,
     vertices: Query<(&Vertex, &VertexSize, &Transform, &Parent)>,
@@ -33,6 +32,13 @@ fn cursor_selection(
     }
 
     let Some(cursor) = window.single().cursor_position() else { return };
+    for (node, transform) in masking.iter() {
+        let rect = node.logical_rect(transform);
+        if rect.contains(cursor) {
+            return
+        }
+    }
+
     let (camera, camera_transform) = camera.single();
     let Some(ray) = camera.viewport_to_world(camera_transform, cursor) else { return };
 

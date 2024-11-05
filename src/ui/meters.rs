@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
+use crate::ui::UiRoot;
 
 
 pub struct Meters {
@@ -68,6 +69,7 @@ impl Meters {
 
         let mut window = super::UiWindow::new("Drone", super::WindowLocation::TopRight, commands);
         window.add_child(content);
+        window.insert(UiRoot);
 
         Self { x, y, z, azimuth, elevation, speed, zoom }
     }
