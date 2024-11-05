@@ -17,7 +17,7 @@ impl Plugin for PickingPlugin {
 
 fn cursor_selection(
     window: Query<&mut Window, With<PrimaryWindow>>,
-    masking: Query<(&Node, &GlobalTransform), With<UiRoot>>,
+    uis: Query<(&Node, &GlobalTransform), With<UiRoot>>,
     camera: Query<(&Camera, &GlobalTransform), With<EventCamera>>,
     tracks: Query<&Track>,
     vertices: Query<(&Vertex, &VertexSize, &Transform, &Parent)>,
@@ -32,7 +32,7 @@ fn cursor_selection(
     }
 
     let Some(cursor) = window.single().cursor_position() else { return };
-    for (node, transform) in masking.iter() {
+    for (node, transform) in uis.iter() {
         let rect = node.logical_rect(transform);
         if rect.contains(cursor) {
             return

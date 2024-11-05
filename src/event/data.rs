@@ -27,7 +27,6 @@ pub struct Track {
     pub pid: i32,
     pub creator: String,
     pub vertices: Vec<Vertex>,
-    pub expanded: bool,
 }
 
 pub struct Vertex {
@@ -143,7 +142,6 @@ impl From<CTrack> for Track {
         let creator = CStr::from_bytes_until_nul(&track.creator).unwrap();
         let creator = creator.to_str().unwrap().to_string();
         let vertices = Vec::new();
-        let expanded = false;
         Self {
             tid: track.tid,
             parent: track.parent,
@@ -151,7 +149,6 @@ impl From<CTrack> for Track {
             pid: track.pid,
             creator,
             vertices,
-            expanded,
         }
     }
 }

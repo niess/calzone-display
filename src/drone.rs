@@ -6,7 +6,7 @@ use crate::app::{AppState, Removable};
 use crate::event::{EventBundle, EventCamera};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::sky::{SkyBundle, SkyCamera};
-use crate::ui::Meters;
+use crate::ui::{Meters, UiRoot};
 
 
 pub struct DronePlugin;
@@ -160,13 +160,29 @@ fn on_mouse_wheel(
         With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
     )>,
     drone: Query<&Drone>,
+    uis: Query<(&Node, &GlobalTransform), With<UiRoot>>,
+    window: Query<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
-    if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
-        let mut scroll = 0.0;
-        for wheel in wheels.read() {
-            scroll += wheel.y;
+    if window.is_empty() {
+        return
+    }
+    let Some(cursor) = window.single().cursor_position() else { return };
+    let mut scroll = 0.0;
+    for wheel in wheels.read() {
+        scroll += wheel.y;
+    }
+    if scroll == 0.0 {
+        return
+    }
+    for (node, transform) in uis.iter() {
+        let rect = node.logical_rect(transform);
+        if rect.contains(cursor) {
+            return
         }
+    }
+
+    if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
         perspective.fov = (perspective.fov * (-0.05 * scroll).exp())
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
         drone.single().meters.update_zoom(Drone::FOV_MAX / perspective.fov, &mut commands);

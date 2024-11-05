@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
+use bevy::window::PrimaryWindow;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::drone::Drone;
@@ -76,12 +77,18 @@ fn draw_event(
     events: Res<Events>,
     current_event: Query<Entity, With<Event>>,
     primary_menu: Query<Entity, With<PrimaryMenu>>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut polylines: ResMut<Assets<Polyline>>,
     mut polymats: ResMut<Assets<PolylineMaterial>>,
 ) {
+    if primary_window.is_empty() {
+        return
+    }
+    let primary_window = primary_window.single();
+
     if events.is_changed() && (events.index < events.data.0.len()) {
         if let Some(event) = events.data.0.get(&events.index) {
             // Remove any existing event.
@@ -156,7 +163,7 @@ fn draw_event(
                           });
                     }
                 });
-            UiEvent::spawn_status(&events, primary_menu, &mut commands);
+            UiEvent::spawn_status(&events, primary_menu, &primary_window, &mut commands);
         }
     }
 }

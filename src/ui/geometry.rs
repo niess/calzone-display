@@ -1,8 +1,9 @@
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use crate::app::AppState;
 use crate::drone::TargetEvent;
 use crate::geometry::{RootVolume, Volume};
-use super::{PrimaryMenu, UiText, UiWindow, WindowLocation};
+use super::{PrimaryMenu, Scroll, UiText, UiWindow, WindowLocation};
 
 
 pub fn build(app: &mut App) {
@@ -23,9 +24,15 @@ pub fn setup_window(
     mut commands: Commands,
     root: Query<Entity, With<RootVolume>>,
     primary_menu: Query<Entity, With<PrimaryMenu>>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
     children: Query<&Children, With<Volume>>,
     volumes: Query<&Volume>,
 ) {
+    if primary_window.is_empty() {
+        return
+    }
+    let primary_window = primary_window.single();
+
     let content = commands.spawn((
         VolumeContent,
         NodeBundle {
@@ -38,8 +45,12 @@ pub fn setup_window(
         },
     )).id();
 
+    let mut scroll = Scroll::spawn(&mut commands, &primary_window);
+    scroll.add_child(content);
+    let scroll = scroll.id();
+
     let mut window = UiWindow::new("Volumes", WindowLocation::Relative, &mut commands);
-    window.add_child(content);
+    window.add_child(scroll);
     let window = window.id();
 
     commands

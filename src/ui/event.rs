@@ -3,11 +3,12 @@ use crate::app::AppState;
 use crate::drone::TargetEvent;
 use crate::event::{Event, EventData, Events, Track, TrackData, Vertex};
 use std::collections::{HashMap, HashSet};
-use super::{PrimaryMenu, UiText};
+use super::{PrimaryMenu, Scroll, UiText};
 
 
 pub fn build(app: &mut App) {
     app
+        .init_resource::<TracksExpansion>()
         .add_event::<UpdateEvent>()
         .add_systems(Update, (
             on_button,
@@ -17,6 +18,9 @@ pub fn build(app: &mut App) {
 
 #[derive(Component)]
 pub struct UiEvent;
+
+#[derive(Default, Resource)]
+struct TracksExpansion(HashMap<i32, bool>);
 
 impl UiEvent {
     pub fn spawn_info(
@@ -81,27 +85,6 @@ impl UiEvent {
                     format!("{} [{}]", data.track.creator, data.track.parent)
                 );
             };
-
-            fn uformat(energy: f32) -> String {
-                let scale = energy.log10() as i64 + 6;
-                if scale <= 2 {
-                    format!("{:.3} eV", energy * 1E+06)
-                } else if scale <= 5 {
-                    format!("{:.3} keV", energy * 1E+03)
-                } else if scale <= 8 {
-                    format!("{:.3} MeV", energy)
-                } else if scale <= 11 {
-                    format!("{:.3} GeV", energy * 1E-03)
-                } else if scale <= 14 {
-                    format!("{:.3} TeV", energy * 1E-06)
-                } else if scale <= 17 {
-                    format!("{:.3} PeV", energy * 1E-09)
-                } else if scale <= 20 {
-                    format!("{:.3} EeV", energy * 1E-12)
-                } else {
-                    format!("{:.3} ZeV", energy * 1E-15)
-                }
-            }
 
             let n = data.vertices.len();
             let e0 = data.vertices[0].energy;
@@ -215,8 +198,13 @@ impl UiEvent {
     pub fn spawn_status(
         events: &Events,
         primary_menu: Query<Entity, With<PrimaryMenu>>,
+        primary_window: &Window,
         commands: &mut Commands,
     ) {
+        if events.data.0.len() == 0 {
+            return
+        }
+
         let content = commands.spawn((
             EventContent,
             NodeBundle {
@@ -229,11 +217,13 @@ impl UiEvent {
             },
         )).id();
 
-        update_content(content, events, commands);
+        commands.insert_resource(TracksExpansion::default());
+        update_content(content, events, &TracksExpansion::default(), commands);
 
-        if events.data.0.len() == 0 {
-            return
-        }
+        let mut scroll = Scroll::spawn(commands, primary_window);
+        scroll.add_child(content);
+        let scroll = scroll.id();
+
         let title = format!("Event [{}]", events.index);
         let mut window = super::UiWindow::new(
             title.as_str(),
@@ -241,7 +231,7 @@ impl UiEvent {
             commands
         );
         window.insert(Event);
-        window.add_child(content);
+        window.add_child(scroll);
         let window = window.id();
 
         commands
@@ -261,6 +251,7 @@ fn clear_content(content: Entity, commands: &mut Commands) {
 fn update_content(
     content: Entity,
     events: &Events,
+    expansions: &TracksExpansion,
     commands: &mut Commands,
 ) {
     fn add_button(
@@ -268,29 +259,41 @@ fn update_content(
         event: &EventData,
         track: &TrackData,
         content: Entity,
+        expansions: &TracksExpansion,
         commands: &mut Commands,
     ) {
-        let qualifier = if (track.daughters.len() > 0) && !track.expanded {
+        let expanded = *expansions.0.get(&track.tid).unwrap_or(&false);
+        let qualifier = if (track.daughters.len() > 0) && !expanded {
             ".."
         } else {
             ""
         };
         let label = Track::label_from_parts(track.tid, track.pid);
-        let label = format!("{}{}{}", "  ".repeat(depth), label, qualifier);
-        let button = TrackButton::spawn_button(&label, track.tid, commands);
+        let energy = track.vertices
+            .get(0)
+            .map(|vertex| uformat(vertex.energy))
+            .unwrap_or("?".to_string());
+        let message = format!("{}{}, {}, {}{}",
+            "  ".repeat(depth),
+            label,
+            track.creator,
+            energy,
+            qualifier,
+        );
+        let button = TrackButton::spawn_button(&message, track.tid, commands);
         commands
             .entity(content)
             .add_child(button);
-        if track.expanded {
+        if expanded {
             for daughter in track.daughters.iter() {
                 let daughter = &event.tracks[daughter];
-                add_button(depth + 1, event, daughter, content, commands);
+                add_button(depth + 1, event, daughter, content, expansions, commands);
             }
         }
     }
 
     let event = &events.data.0[&events.index];
-    add_button(0, event, &event.tracks[&1], content, commands);
+    add_button(0, event, &event.tracks[&1], content, expansions, commands);
 }
 
 #[derive(Component)]
@@ -345,19 +348,38 @@ fn on_update(
     mut commands: Commands,
     mut reader: EventReader<UpdateEvent>,
     content: Query<Entity, With<EventContent>>,
-    mut events: ResMut<Events>,
+    events: Res<Events>,
+    mut expansions: ResMut<TracksExpansion>,
 ) {
     for tid in reader.read() {
         let tid = tid.0;
-        let index = events.index;
-        let event = events.data.0.get_mut(&index).unwrap();
-        event.tracks
+        expansions.0
             .entry(tid)
-            .and_modify(|track| {
-                track.expanded = !track.expanded;
-            });
+            .and_modify(|expanded| *expanded = !(*expanded))
+            .or_insert(true);
         let content = content.single();
         clear_content(content, &mut commands);
-        update_content(content, &events, &mut commands);
+        update_content(content, &events, &expansions, &mut commands);
+    }
+}
+
+fn uformat(energy: f32) -> String {
+    let scale = energy.log10() as i64 + 6;
+    if scale <= 2 {
+        format!("{:.3} eV", energy * 1E+06)
+    } else if scale <= 5 {
+        format!("{:.3} keV", energy * 1E+03)
+    } else if scale <= 8 {
+        format!("{:.3} MeV", energy)
+    } else if scale <= 11 {
+        format!("{:.3} GeV", energy * 1E-03)
+    } else if scale <= 14 {
+        format!("{:.3} TeV", energy * 1E-06)
+    } else if scale <= 17 {
+        format!("{:.3} PeV", energy * 1E-09)
+    } else if scale <= 20 {
+        format!("{:.3} EeV", energy * 1E-12)
+    } else {
+        format!("{:.3} ZeV", energy * 1E-15)
     }
 }

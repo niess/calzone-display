@@ -7,10 +7,12 @@ mod event;
 mod geometry;
 mod meters;
 mod nord;
+mod scroll;
 
 pub use event::UiEvent;
 pub use meters::Meters;
 pub use nord::NORD;
+pub use scroll::Scroll;
 
 
 pub struct UiPlugin;
@@ -20,6 +22,7 @@ impl Plugin for UiPlugin {
         app.add_systems(OnEnter(AppState::Display), PrimaryMenu::spawn.after(GeometrySet));
         event::build(app);
         geometry::build(app);
+        scroll::build(app);
     }
 }
 
