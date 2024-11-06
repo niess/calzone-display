@@ -230,13 +230,23 @@ impl UiEvent {
             super::WindowLocation::Relative,
             commands
         );
-        window.insert(Event);
         window.add_child(scroll);
         let window = window.id();
 
+        let mut capsule = commands.spawn(NodeBundle {
+            style: Style {
+                padding: UiRect::left(Val::Px(4.0)),
+                ..default()
+            },
+            ..default()
+        });
+        capsule.insert(Event);
+        capsule.add_child(window);
+        let capsule = capsule.id();
+
         commands
             .entity(primary_menu.single())
-            .add_child(window);
+            .add_child(capsule);
     }
 }
 

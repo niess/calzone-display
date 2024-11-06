@@ -85,7 +85,7 @@ fn on_button(
                     let volume = volumes.get(button.0).unwrap();
                     ev_target.send(TargetEvent(volume.target()));
                 } else {
-                    ev_update.send(UpdateEvent(button.0));
+                    ev_update.send(UpdateEvent(button.0)); // XXX Add an UpdateAll event?
                 }
                 text.sections[0].style.color = UiText::PRESSED.into();
             }

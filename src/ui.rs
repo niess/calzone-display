@@ -108,7 +108,6 @@ impl UiWindow {
                     style: Style {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
-                        align_self: AlignSelf::Stretch,
                         align_items: AlignItems::Center,
                         justify_items: JustifyItems::Center,
                         padding: UiRect::new(Val::ZERO, Val::ZERO, Val::Px(3.0), Val::Px(5.0)),
@@ -136,6 +135,7 @@ impl UiWindow {
                 right,
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
+                align_self: AlignSelf::Start,
                 border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
