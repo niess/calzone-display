@@ -321,7 +321,7 @@ impl TrackButton {
 }
 
 #[derive(Event)]
-struct UpdateEvent(i32);
+struct UpdateEvent(i32, bool);
 
 fn on_button(
     interactions: Query<(&Interaction, &TrackButton, &Children), Changed<Interaction>>,
@@ -340,7 +340,8 @@ fn on_button(
                     let track = &event.tracks[&button.0];
                     ev_target.send(TargetEvent(track.target()));
                 } else {
-                    ev_update.send(UpdateEvent(button.0));
+                    let recursive = keyboard_input.pressed(KeyCode::ControlLeft);
+                    ev_update.send(UpdateEvent(button.0, recursive));
                 }
                 text.sections[0].style.color = UiText::PRESSED.into();
             }
@@ -361,12 +362,30 @@ fn on_update(
     events: Res<Events>,
     mut expansions: ResMut<TracksExpansion>,
 ) {
-    for tid in reader.read() {
-        let tid = tid.0;
+    for UpdateEvent (tid, recursive) in reader.read() {
         expansions.0
-            .entry(tid)
+            .entry(*tid)
             .and_modify(|expanded| *expanded = !(*expanded))
             .or_insert(true);
+        if *recursive {
+            fn recurse(
+                expanded: bool,
+                tid: i32,
+                event: &EventData,
+                expansions: &mut TracksExpansion
+            ) {
+                for daughter in event.tracks[&tid].daughters.iter() {
+                    expansions.0
+                        .entry(*daughter)
+                        .and_modify(|e| *e = expanded)
+                        .or_insert(expanded);
+                    recurse(expanded, *daughter, event, expansions);
+                }
+            }
+            let event = &events.data.0[&events.index];
+            recurse(expansions.0[tid], *tid, event, &mut expansions);
+        }
+
         let content = content.single();
         clear_content(content, &mut commands);
         update_content(content, &events, &expansions, &mut commands);

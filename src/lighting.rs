@@ -10,7 +10,7 @@ pub struct LightingPlugin;
 #[derive(Event)]
 pub struct Shadows(bool);
 
-#[derive(Resource)]
+#[derive(Resource)] // XXX Add a controller?
 pub struct Sun {
     illuminance: f32,
     latitude: f32,

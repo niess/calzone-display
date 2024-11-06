@@ -67,7 +67,7 @@ pub fn setup_window(
 }
 
 #[derive(Event)]
-struct UpdateEvent(Entity);
+struct UpdateEvent(Entity, bool);
 
 fn on_button(
     interactions: Query<(&Interaction, &VolumeButton, &Children), Changed<Interaction>>,
@@ -85,7 +85,8 @@ fn on_button(
                     let volume = volumes.get(button.0).unwrap();
                     ev_target.send(TargetEvent(volume.target()));
                 } else {
-                    ev_update.send(UpdateEvent(button.0)); // XXX Add an UpdateAll event?
+                    let recursive = keyboard_input.pressed(KeyCode::ControlLeft);
+                    ev_update.send(UpdateEvent(button.0, recursive));
                 }
                 text.sections[0].style.color = UiText::PRESSED.into();
             }
@@ -110,6 +111,22 @@ fn on_update(
     for event in events.read() {
         let mut volume = volumes.get_mut(event.0).unwrap();
         volume.expanded = !volume.expanded;
+        if event.1 {
+            fn recurse(
+                expanded: bool,
+                entity: Entity,
+                children: &Query<&Children, With<Volume>>,
+                volumes: &mut Query<&mut Volume>,
+            ) {
+                let Ok(childs) = children.get(entity) else { return };
+                for child in childs {
+                    let mut volume = volumes.get_mut(*child).unwrap();
+                    volume.expanded = expanded;
+                    recurse(expanded, *child, children, volumes);
+                }
+            }
+            recurse(volume.expanded, event.0, &children, &mut volumes);
+        }
         update_window(
             menu.single(),
             &mut commands,
