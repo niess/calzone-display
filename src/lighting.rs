@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
-use chrono::{TimeZone, Utc};
+use chrono::{NaiveDate, TimeZone, Utc};
 use crate::app::{AppState, Removable};
 use super::geometry::GeometrySet;
 
@@ -10,12 +10,15 @@ pub struct LightingPlugin;
 #[derive(Event)]
 pub struct Shadows(bool);
 
-#[derive(Resource)] // XXX Add a controller?
+#[derive(Resource)]
 pub struct Sun {
-    illuminance: f32,
-    latitude: f32,
-    longitude: f32,
-    time: f32,
+    pub illuminance: f32,
+    pub latitude: f32,
+    pub longitude: f32,
+    pub time: f32,
+    pub day: u32,
+    pub month: u32,
+    pub year: i32,
     entity: Entity,
 }
 
@@ -74,16 +77,27 @@ impl Shadows {
 
 impl Sun {
     pub fn compute_position(&self) -> spa::SolarPos {
+        const DAYS: [ u32; 12 ] = [ 31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ];
+        let max_day = if self.month == 2 {
+            if NaiveDate::from_ymd_opt(self.year, 1, 1).unwrap().leap_year() {
+                29
+            } else {
+                28
+            }
+        } else {
+            DAYS[(self.month - 1) as usize]
+        };
+
         let h = self.time.floor();
         let m = ((self.time - h) * 60.0).floor();
         let s = ((self.time - h) * 3600.0 - m * 60.0).floor();
         let utc = Utc.with_ymd_and_hms(
-            2024,
-            6,
-            21,
-            (h as u32).clamp(0, 24),
-            (m as u32).clamp(0, 60),
-            (s as u32).clamp(0, 60)
+            self.year,
+            self.month,
+            self.day.min(max_day),
+            (h as u32) % 24,
+            (m as u32) % 60,
+            (s as u32) % 60,
         )
             .single()
             .unwrap();
@@ -115,7 +129,10 @@ impl Default for Sun {
         let latitude = 45.0;
         let longitude = 3.0;
         let time = 12.0;
+        let day = 21;
+        let month = 6;
+        let year = 2024;
         let entity = Entity::PLACEHOLDER;
-        Self { illuminance, latitude, longitude, time, entity }
+        Self { illuminance, latitude, longitude, time, day, month, year, entity }
     }
 }

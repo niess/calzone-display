@@ -1,10 +1,14 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
+use bevy_simple_text_input::{TextInputBundle, TextInputCursorPos, TextInputInactive,
+    TextInputPlugin, TextInputSettings, TextInputSubmitEvent, TextInputSystem, TextInputValue};
+use bevy::window::PrimaryWindow;
 use crate::app::{AppState, Removable};
 use crate::geometry::GeometrySet;
 
 mod event;
 mod geometry;
+mod location;
 mod meters;
 mod nord;
 mod scroll;
@@ -19,9 +23,17 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Display), PrimaryMenu::spawn.after(GeometrySet));
+        app
+            .add_plugins(TextInputPlugin)
+            .add_systems(OnEnter(AppState::Display), PrimaryMenu::spawn.after(GeometrySet))
+            .add_systems(Update,
+                UiText::on_mouse_button
+                    .run_if(in_state(AppState::Display))
+                    .after(TextInputSystem)
+            );
         event::build(app);
         geometry::build(app);
+        location::build(app);
         scroll::build(app);
     }
 }
@@ -154,15 +166,23 @@ impl UiWindow {
 struct UiText;
 
 impl UiText {
+    pub const FONT_HEIGHT: f32 = 18.0;
+    pub const FONT_ASPECT_RATIO: f32 = 0.5;
+
     const NORMAL: Srgba = NORD[4];
     const HOVERED: Srgba = NORD[7];
     const PRESSED: Srgba = NORD[1];
+
+    #[inline]
+    fn font_width() -> f32 {
+        Self::FONT_HEIGHT * Self::FONT_ASPECT_RATIO
+    }
 
     fn new_bundle(message: &str) -> TextBundle {
         TextBundle::from_section(
             message,
             TextStyle {
-                font_size: 18.0,
+                font_size: Self::FONT_HEIGHT,
                 color: Self::NORMAL.into(),
                 ..default()
             }
@@ -171,6 +191,62 @@ impl UiText {
             margin: UiRect::horizontal(Val::Px(6.0)),
             ..default()
         })
+    }
+
+    fn new_input(message: &str, width: f32) -> (NodeBundle, TextInputBundle) {
+        (
+            NodeBundle {
+                style: Style {
+                    width: Val::Px(width),
+                    ..default()
+                },
+                border_color: NORD[2].into(),
+                ..default()
+            },
+            TextInputBundle::default()
+                .with_inactive(true)
+                .with_value(message)
+                .with_settings(TextInputSettings {
+                    retain_on_submit: true,
+                    ..default()
+                })
+                .with_text_style(TextStyle {
+                    font_size: Self::FONT_HEIGHT,
+                    color: Self::NORMAL.into(),
+                    ..default()
+                }),
+        )
+    }
+
+    fn on_mouse_button(
+        buttons: Res<ButtonInput<MouseButton>>,
+        mut inputs: Query<(
+            Entity, &Node, &GlobalTransform, &mut TextInputInactive, &TextInputValue,
+            &mut TextInputCursorPos,
+        )>,
+        mut window: Query<&mut Window, With<PrimaryWindow>>,
+        mut ev_input: EventWriter<TextInputSubmitEvent>,
+    ) {
+        if window.is_empty() {
+            return; // The window might have been closed.
+        }
+        let window = window.single_mut();
+
+        if buttons.just_pressed(MouseButton::Left) {
+            if let Some(cursor) = window.cursor_position() {
+                for (entity, node, transform, mut inactive, value, mut pos) in inputs.iter_mut() {
+                    let rect = node.logical_rect(transform);
+                    if rect.contains(cursor) {
+                        inactive.0 = false;
+                        pos.0 = ((cursor.x - rect.min.x) / Self::font_width() + 0.5) as usize;
+                    } else if !inactive.0 {
+                        inactive.0 = true;
+                        let value = value.0.clone();
+                        ev_input.send(TextInputSubmitEvent { entity, value });
+                    }
+                }
+            }
+        }
     }
 
     fn spawn_button<T>(

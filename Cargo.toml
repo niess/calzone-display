@@ -25,6 +25,7 @@ bevy = { version = "0.14", default-features = false, features = [
 bevy_atmosphere = { version = "0.10", default-features = false, features = ["dithering", "procedural", "nishita"] }
 bevy_polyline = "0.10"
 bevy_rapier3d = "0.27"
+bevy_simple_text_input = "0.9"
 chrono = "0.4"
 pyo3 = { version = "0.21", features = ["abi3", "extension-module"] }
 rmp-serde = "1.3"
