@@ -14,7 +14,6 @@ pub struct Shadows(bool);
 pub struct Sun {
     pub illuminance: f32,
     pub latitude: f32,
-    pub longitude: f32,
     pub time: f32,
     pub day: u32,
     pub month: u32,
@@ -91,7 +90,7 @@ impl Sun {
         let h = self.time.floor();
         let m = ((self.time - h) * 60.0).floor();
         let s = ((self.time - h) * 3600.0 - m * 60.0).floor();
-        let utc = Utc.with_ymd_and_hms(
+        let datetime = Utc.with_ymd_and_hms(
             self.year,
             self.month,
             self.day.min(max_day),
@@ -102,7 +101,7 @@ impl Sun {
             .single()
             .unwrap();
         spa::solar_position::<spa::StdFloatOps>(
-            utc, self.latitude as f64, self.longitude as f64,
+            datetime, self.latitude as f64, 0.0,
         ).unwrap()
     }
 
@@ -127,12 +126,11 @@ impl Default for Sun {
     fn default() -> Self {
         let illuminance = light_consts::lux::OVERCAST_DAY;
         let latitude = 45.0;
-        let longitude = 3.0;
         let time = 12.0;
         let day = 21;
         let month = 6;
         let year = 2024;
         let entity = Entity::PLACEHOLDER;
-        Self { illuminance, latitude, longitude, time, day, month, year, entity }
+        Self { illuminance, latitude, time, day, month, year, entity }
     }
 }

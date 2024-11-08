@@ -19,7 +19,6 @@ pub fn build(app: &mut App) {
 enum Property {
     Day,
     Latitude,
-    Longitude,
     Month,
     Time,
     Year,
@@ -29,8 +28,8 @@ fn setup_panel(
     mut commands: Commands,
     sun: Res<Sun>,
 ) {
-    const LABELS: [&'static str; 6] = [ "latitude", "longitude", "time", "day", "month", "year" ];
-    const UNITS: [&'static str; 6] = [ "deg", "deg", " h ", "", "", "" ];
+    const LABELS: [&'static str; 5] = [ "latitude", "time", "day", "month", "year" ];
+    const UNITS: [&'static str; 5] = [ "deg", " h ", "", "", "" ];
 
     let labels = LABELS.map(|label| commands.spawn(UiText::new_bundle(label)).id());
     let units = UNITS.map(|label| commands.spawn(UiText::new_bundle(label)).id());
@@ -45,7 +44,6 @@ fn setup_panel(
 
     let values = [
         format(Property::Latitude, sun.latitude),
-        format(Property::Longitude, sun.longitude),
         format(Property::Time, sun.time),
         format(Property::Day, sun.day),
         format(Property::Month, sun.month),
@@ -115,9 +113,6 @@ impl Property {
             Self::Latitude => self.try_update_or_reset(
                 new_value, &mut sun.latitude, Some(-90.0), Some(90.0), input_value
             ),
-            Self::Longitude => self.try_update_or_reset(
-                new_value, &mut sun.longitude, Some(-180.0), Some(180.0), input_value
-            ),
             Self::Month => self.try_update_or_reset(
                 new_value, &mut sun.month, Some(1), Some(12), input_value
             ),
@@ -134,7 +129,6 @@ impl Property {
         match self {
             Self::Day => format!("{:7}", value),
             Self::Latitude => format!("{:7.2}", value),
-            Self::Longitude => format!("{:7.2}", value),
             Self::Month => format!("{:7}", value),
             Self::Time => format!("{:7}", value),
             Self::Year => format!("{:7}", value),
