@@ -4,7 +4,7 @@ use bevy::window::PrimaryWindow;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::drone::Drone;
-use crate::ui::{PrimaryMenu, UiEvent};
+use crate::ui::{PrimaryMenu, TextInputSet, TextInputState, UiEvent};
 use std::borrow::Cow;
 
 mod colours;
@@ -29,7 +29,9 @@ impl Plugin for EventPlugin {
             .add_systems(Update, (
                     update_events,
                     draw_event,
-                    on_keyboard,
+                    on_keyboard
+                        .after(TextInputSet)
+                        .run_if(in_state(TextInputState::Inactive)),
                 ).run_if(in_state(AppState::Display))
             );
     }

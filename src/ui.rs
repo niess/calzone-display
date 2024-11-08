@@ -25,9 +25,11 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(TextInputPlugin)
+            .init_state::<TextInputState>()
             .add_systems(OnEnter(AppState::Display), PrimaryMenu::spawn.after(GeometrySet))
             .add_systems(Update,
-                UiText::on_mouse_button
+                (UiText::on_mouse_button, UiText::on_inactive_changed).chain()
+                    .in_set(TextInputSet)
                     .run_if(in_state(AppState::Display))
                     .after(TextInputSystem)
             );
@@ -37,6 +39,16 @@ impl Plugin for UiPlugin {
         scroll::build(app);
     }
 }
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum TextInputState {
+    Active,
+    #[default]
+    Inactive,
+}
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TextInputSet;
 
 #[derive(Component)]
 pub struct UiRoot;
@@ -237,14 +249,28 @@ impl UiText {
                 for (entity, node, transform, mut inactive, value, mut pos) in inputs.iter_mut() {
                     let rect = node.logical_rect(transform);
                     if rect.contains(cursor) {
-                        inactive.0 = false;
+                        if inactive.0 {
+                            inactive.0 = false;
+                        }
                         pos.0 = ((cursor.x - rect.min.x) / Self::font_width() + 0.5) as usize;
                     } else if !inactive.0 {
-                        inactive.0 = true;
                         let value = value.0.clone();
                         ev_input.send(TextInputSubmitEvent { entity, value });
                     }
                 }
+            }
+        }
+    }
+
+    fn on_inactive_changed(
+        inactives: Query<&TextInputInactive, Changed<TextInputInactive>>,
+        mut next_state: ResMut<NextState<TextInputState>>,
+    ) {
+        for inactive in inactives.iter() {
+            if inactive.0 {
+                next_state.set(TextInputState::Inactive);
+            } else {
+                next_state.set(TextInputState::Active);
             }
         }
     }

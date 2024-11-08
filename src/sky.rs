@@ -7,6 +7,7 @@ use bevy_atmosphere::skybox;
 use crate::app::AppState;
 use crate::drone::Drone;
 use crate::lighting::Sun;
+use crate::ui::{TextInputSet, TextInputState};
 
 
 pub struct SkyPlugin;
@@ -23,7 +24,12 @@ impl Plugin for SkyPlugin {
             .add_plugins(AtmospherePlugin)
             .insert_resource(AtmosphereModel::new(Nishita::default()))
             .add_systems(OnEnter(AppState::Display), add_skybox.after(Drone::spawn))
-            .add_systems(Update, (on_keyboard, update_sky).run_if(in_state(AppState::Display)));
+            .add_systems(Update, (
+                on_keyboard
+                    .after(TextInputSet)
+                    .run_if(in_state(TextInputState::Inactive)),
+                update_sky,
+            ).run_if(in_state(AppState::Display)));
     }
 }
 

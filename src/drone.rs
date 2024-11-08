@@ -6,7 +6,7 @@ use crate::app::{AppState, Removable};
 use crate::event::{EventBundle, EventCamera};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
 use crate::sky::{SkyBundle, SkyCamera};
-use crate::ui::{Meters, UiRoot};
+use crate::ui::{Meters, TextInputSet, TextInputState, UiRoot};
 
 
 pub struct DronePlugin;
@@ -20,7 +20,9 @@ impl Plugin for DronePlugin {
                 on_mouse_button,
                 on_mouse_motion,
                 on_mouse_wheel,
-                on_keyboard,
+                on_keyboard
+                    .after(TextInputSet)
+                    .run_if(in_state(TextInputState::Inactive)),
                 on_target,
                 on_transform,
             ).run_if(in_state(AppState::Display)));

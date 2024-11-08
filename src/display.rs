@@ -3,6 +3,7 @@ use bevy::pbr::wireframe::Wireframe;
 use crate::app::AppState;
 use crate::geometry::{Plain, Transparent, Volume};
 use crate::lighting::{Shadows, Sun};
+use crate::ui::{TextInputSet, TextInputState};
 
 
 pub struct DisplayPlugin;
@@ -45,7 +46,9 @@ impl Plugin for DisplayPlugin {
             .init_resource::<BlendSettings>()
             .init_resource::<PremultipliedSettings>()
             .add_systems(Update, (
-                on_keyboard,
+                on_keyboard
+                    .after(TextInputSet)
+                    .run_if(in_state(TextInputState::Inactive)),
                 (on_display_mode, on_wireframe_mode).after(on_keyboard),
             ).run_if(in_state(AppState::Display)));
     }
