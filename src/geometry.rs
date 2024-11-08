@@ -4,6 +4,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
 use bevy::render::primitives::Aabb;
 use crate::app::{AppState, Removable};
+use convert_case::{Case, Casing};
 use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
 use std::collections::HashMap;
@@ -171,7 +172,8 @@ fn setup_geometry(
                 .unwrap()
                 .to_str()
                 .unwrap()
-                .to_string(); // XXX To Camel Case.
+                .to_string()
+                .to_case(Case::Pascal);
             commands.spawn((
                 PbrBundle {
                     mesh: meshes.add(mesh),
@@ -184,6 +186,7 @@ fn setup_geometry(
                 },
                 RootVolume,
                 Removable,
+                Plain,
                 Volume::new(name, aabb),
             ));
         },

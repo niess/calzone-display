@@ -27,6 +27,7 @@ bevy_polyline = "0.10"
 bevy_rapier3d = "0.27"
 bevy_simple_text_input = "0.9"
 chrono = "0.4"
+convert_case = "0.6"
 pyo3 = { version = "0.21", features = ["abi3", "extension-module"] }
 rmp-serde = "1.3"
 serde = { version = "1", features = ["derive"] }
