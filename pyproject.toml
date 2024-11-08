@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools", "setuptools-rust"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calzone-display"
+authors = [
+    {name = "Valentin Niess", email = "valentin.niess@gmail.com"}
+]
+description = "A display extension for Calzone (CALorimeter ZONE)"
+readme = "README.md"
+license = {text = "LGPLv3"}
+keywords = ["Python", "Monte Carlo", "Geant4", "Display"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics"
+]
+version = "0.1.0"
+requires-python = ">=3.7.0"
+dependencies = [
+    "calzone >= 0.4.0",
+    "numpy >= 1.6.0",
+]
+
+[project.urls]
+source = "https://github.com/niess/calzone-display"
+
+[tool.setuptools.packages.find]
+where = ["src/python"]
+
+[[tool.setuptools-rust.ext-modules]]
+target = "calzone_display.calzone_display"
+
+# Build options for Python wheels.
+[tool.cibuildwheel.linux]
+before-all = """
+curl -sSf https://sh.rustup.rs -o rustup.sh && \
+sh rustup.sh -y
+"""
+build = "cp37-manylinux_x86_64"
+environment = "PATH=$HOME/.cargo/bin:$PATH"
+manylinux-x86_64-image = "manylinux2014"

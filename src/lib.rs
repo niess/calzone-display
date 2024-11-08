@@ -43,9 +43,9 @@ enum DisplayArg<'py> {
 }
 
 
-/// CALorimeter ZONE (CalZone) Viewer
+/// A display extension for Calzone (CALorimeter ZONE)
 #[pymodule]
-fn calzone_viewer(module: &Bound<PyModule>) -> PyResult<()> {
+fn calzone_display(module: &Bound<PyModule>) -> PyResult<()> {
     // Initialise the events interface.
     let py = module.py();
     event::initialise(py)?;

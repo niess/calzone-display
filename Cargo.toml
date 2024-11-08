@@ -1,10 +1,11 @@
 [package]
-name = "calzone_viewer"
+name = "calzone-display"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]
+name = "calzone_display"
 
 [dependencies]
 bevy = { version = "0.14", default-features = false, features = [
