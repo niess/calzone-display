@@ -134,7 +134,7 @@ impl UiEvent {
                 labels.push("volume");
                 values.push(volumes[0].to_string());
             } else if volumes.len() > 1 {
-                labels.push("processes");
+                labels.push("volumes");
                 if volumes.len() == 2 {
                     values.push(format!("{} and {}", volumes[0], volumes[1]))
                 } else {

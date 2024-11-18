@@ -240,6 +240,7 @@ fn on_target(
     mut events: EventReader<TargetEvent>,
     mut transform: Query<(&mut Transform, &mut Velocity), With<Drone>>,
 ) {
+    // XXX Reset zoom factor?
     for event in events.read() {
         let (mut transform, mut velocity) = transform.single_mut();
         *transform = event.0;
