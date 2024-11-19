@@ -155,10 +155,10 @@ fn on_mouse_wheel(
     mut camera: Query<&mut Projection, (
         With<DroneCamera>, Without<EventCamera>, Without<SkyCamera>
     )>,
-    mut event: Query<&mut Projection, (
+    event_camera: Query<&mut Projection, (
         With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
     )>,
-    mut sky: Query<&mut Projection, (
+    sky_camera: Query<&mut Projection, (
         With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
     )>,
     drone: Query<&Drone>,
@@ -187,14 +187,28 @@ fn on_mouse_wheel(
     if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
         perspective.fov = (perspective.fov * (-0.05 * scroll).exp())
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
-        drone.single().meters.update_zoom(Drone::FOV_MAX / perspective.fov, &mut commands);
+        update_zoom(drone.single(), perspective, event_camera, sky_camera, &mut commands);
+    }
+}
 
-        if let Projection::Perspective(event) = event.single_mut().into_inner() {
-            event.fov = perspective.fov;
-        }
-        if let Projection::Perspective(sky) = sky.single_mut().into_inner() {
-            sky.fov = perspective.fov;
-        }
+fn update_zoom(
+    drone: &Drone,
+    perspective: &PerspectiveProjection,
+    mut event_camera: Query<&mut Projection, (
+        With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
+    )>,
+    mut sky_camera: Query<&mut Projection, (
+        With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
+    )>,
+    commands: &mut Commands,
+) {
+    drone.meters.update_zoom(Drone::FOV_MAX / perspective.fov, commands);
+
+    if let Projection::Perspective(event_camera) = event_camera.single_mut().into_inner() {
+        event_camera.fov = perspective.fov;
+    }
+    if let Projection::Perspective(sky_camera) = sky_camera.single_mut().into_inner() {
+        sky_camera.fov = perspective.fov;
     }
 }
 
@@ -238,15 +252,34 @@ fn on_keyboard(
 
 fn on_target(
     mut events: EventReader<TargetEvent>,
-    mut transform: Query<(&mut Transform, &mut Velocity), With<Drone>>,
+    mut drone: Query<(&Drone, &mut Transform, &mut Velocity)>,
+    mut commands: Commands,
+    mut drone_camera: Query<&mut Projection, (
+        With<DroneCamera>, Without<EventCamera>, Without<SkyCamera>
+    )>,
+    event_camera: Query<&mut Projection, (
+        With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
+    )>,
+    sky_camera: Query<&mut Projection, (
+        With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
+    )>,
 ) {
-    // XXX Reset zoom factor?
+    let mut reset_zoom = false;
     for event in events.read() {
-        let (mut transform, mut velocity) = transform.single_mut();
+        let (_, mut transform, mut velocity) = drone.single_mut();
         *transform = event.0;
         let magnitude = velocity.linvel.length();
         if magnitude != 0.0 {
             velocity.linvel = magnitude * transform.forward();
+        }
+        reset_zoom = true;
+    }
+
+    if reset_zoom {
+        if let Projection::Perspective(perspective) = drone_camera.single_mut().into_inner() {
+            let (drone, ..) = drone.single_mut();
+            perspective.fov = Drone::FOV_MAX;
+            update_zoom(drone, perspective, event_camera, sky_camera, &mut commands);
         }
     }
 }
