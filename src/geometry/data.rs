@@ -28,9 +28,9 @@ pub struct VolumeInfo {
 #[derive(Deserialize)]
 pub enum SolidInfo {
     Box(BoxInfo),
+    Mesh(MeshInfo),
     Orb(OrbInfo),
     Sphere(SphereInfo),
-    Tessellation(TessellationInfo),
     Tubs(TubsInfo),
 }
 
@@ -58,7 +58,7 @@ pub struct SphereInfo {
 
 #[derive(Deserialize)]
 #[serde(transparent)]
-pub struct TessellationInfo (pub Vec<f32>);
+pub struct MeshInfo (pub Vec<f32>);
 
 #[derive(Deserialize)]
 pub struct TransformInfo {

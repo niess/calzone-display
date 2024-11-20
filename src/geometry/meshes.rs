@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
 use bevy::render::render_asset::RenderAssetUsages;
-use super::data::{BoxInfo, OrbInfo, SolidInfo, SphereInfo, TessellationInfo, TubsInfo};
+use super::data::{BoxInfo, MeshInfo, OrbInfo, SolidInfo, SphereInfo, TubsInfo};
 use super::units::Meters;
 
 
@@ -9,9 +9,9 @@ impl From<SolidInfo> for Mesh {
     fn from(value: SolidInfo) -> Self {
         match value {
             SolidInfo::Box(solid) => solid.into(),
+            SolidInfo::Mesh(solid) => solid.into(),
             SolidInfo::Orb(solid) => solid.into(),
             SolidInfo::Sphere(solid) => solid.into(),
-            SolidInfo::Tessellation(solid) => solid.into(),
             SolidInfo::Tubs(solid) => solid.into(),
         }
     }
@@ -50,8 +50,8 @@ impl From<SphereInfo> for Mesh {
     }
 }
 
-impl From<TessellationInfo> for Mesh {
-    fn from(value: TessellationInfo) -> Self {
+impl From<MeshInfo> for Mesh {
+    fn from(value: MeshInfo) -> Self {
         let n = value.0.len() / 3;
         let mut vertices = Vec::with_capacity(n); // Vertices are duplicated in order to properly
         let mut normals = Vec::with_capacity(n);  // apply faces normals.
