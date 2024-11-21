@@ -27,9 +27,13 @@ impl Plugin for LightingPlugin {
             .insert_resource(Sun::default())
             .add_event::<Shadows>()
             .add_systems(OnEnter(AppState::Display), setup_light.after(GeometrySet))
-            .add_systems(OnExit(AppState::Display), remove_light);
+            .add_systems(OnExit(AppState::Display), remove_light)
+            .add_systems(Update, update_light.run_if(in_state(AppState::Display)));
     }
 }
+
+#[derive(Component)]
+struct SunLight;
 
 fn setup_light(
     mut commands: Commands,
@@ -45,6 +49,7 @@ fn setup_light(
         transform: sun.compute_transform(),
         ..default()
     })
+    .insert(SunLight)
     .insert(Removable)
     .observe(Shadows::modify_sun)
     .id();
@@ -52,6 +57,16 @@ fn setup_light(
 
 fn remove_light(mut sun: ResMut<Sun>) {
     sun.entity = Entity::PLACEHOLDER;
+}
+
+fn update_light(
+    sun: Res<Sun>,
+    mut transform: Query<&mut Transform, With<SunLight>>,
+) {
+    if transform.is_empty() || !sun.is_changed() {
+        return
+    }
+    *transform.single_mut() = sun.compute_transform();
 }
 
 impl Shadows {
