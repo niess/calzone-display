@@ -115,7 +115,7 @@ fn iddle_system(
     mut exit: EventWriter<AppExit>,
     event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
 ) {
-    if GeometryPlugin::is_some() {
+    if GeometryPlugin::is_data() {
         if window.is_empty() {
             commands.spawn((
                 Window {

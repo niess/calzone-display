@@ -11,6 +11,14 @@ mod sky;
 mod ui;
 
 
+///  Close the current display.
+#[pyfunction]
+#[pyo3(name="close", signature=())]
+fn close_display() {
+    geometry::GeometryPlugin::unload();
+}
+
+
 /// Display a Calzone geometry.
 #[pyfunction]
 #[pyo3(name="display", signature=(arg,/, *, data=None))]
@@ -54,6 +62,7 @@ fn calzone_display(module: &Bound<PyModule>) -> PyResult<()> {
     app::spawn(module)?;
 
     // Set the module's interface.
+    module.add_function(wrap_pyfunction!(close_display, module)?)?;
     module.add_function(wrap_pyfunction!(run_display, module)?)?;
 
     Ok(())

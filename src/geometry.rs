@@ -45,6 +45,7 @@ pub struct Transparent;
 #[derive(Default)]
 enum Configuration {
     Data(Arc<data::GeometryInfo>),
+    Close,
     Stl(String),
     #[default]
     None,
@@ -81,11 +82,23 @@ impl GeometryPlugin{
         Ok(())
     }
 
+    pub fn is_data() -> bool {
+        match *GEOMETRY.lock().unwrap() {
+            Configuration::Data(_) => true,
+            Configuration::Stl(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_some() -> bool {
         match *GEOMETRY.lock().unwrap() {
             Configuration::None => false,
             _ => true,
         }
+    }
+
+    pub fn unload() {
+        *GEOMETRY.lock().unwrap() = Configuration::Close;
     }
 }
 
@@ -190,6 +203,7 @@ fn setup_geometry(
                 Volume::new(name, aabb),
             ));
         },
+        Configuration::Close => (),
         Configuration::None => (),
     }
 }
