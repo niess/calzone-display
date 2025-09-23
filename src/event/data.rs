@@ -6,6 +6,9 @@ use std::ffi::CStr;
 use std::sync::Mutex;
 use super::numpy::PyArray;
 
+#[cfg(feature = "ipc")]
+use serde::{Deserialize, Serialize};
+
 
 // ===============================================================================================
 //
@@ -14,12 +17,15 @@ use super::numpy::PyArray;
 // ===============================================================================================
 
 #[derive(Default)]
+#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
 pub struct Events (pub HashMap<usize, Event>);
 
+#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
 pub struct Event {
     pub tracks: HashMap<i32, Track>
 }
 
+#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
 pub struct Track {
     pub tid: i32,
     pub parent: i32,
@@ -29,6 +35,7 @@ pub struct Track {
     pub vertices: Vec<Vertex>,
 }
 
+#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
 pub struct Vertex {
     pub energy: f32,
     pub position: Vec3,
@@ -96,13 +103,23 @@ impl Events {
             }
         }
 
-        *EVENTS.lock().unwrap() = Some(Self(events));
+        let events = Self(events);
+
+        #[cfg(feature = "ipc")]
+        crate::ipc::send_events(data.py(), events)?;
+
+        #[cfg(not(feature = "ipc"))]
+        Self::set(events);
 
         Ok(())
     }
 
     pub fn take() -> Option<Self> {
         EVENTS.lock().unwrap().take()
+    }
+
+    pub(crate) fn set(events: Self) {
+        *EVENTS.lock().unwrap() = Some(events);
     }
 }
 

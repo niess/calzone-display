@@ -20,6 +20,9 @@ mod meshes;
 mod stl;
 mod units;
 
+#[cfg(feature = "ipc")]
+pub(crate) use data::GeometryInfo;
+
 
 pub struct GeometryPlugin;
 
@@ -43,7 +46,7 @@ pub struct Plain;
 pub struct Transparent;
 
 #[derive(Default)]
-enum Configuration {
+pub(crate) enum Configuration {
     Data(Arc<data::GeometryInfo>),
     Close,
     Stl(String),
@@ -56,10 +59,15 @@ static GEOMETRY: Mutex<Configuration> = Mutex::new(Configuration::None);
 impl GeometryPlugin{
     pub fn load(py: Python, file: &str) -> PyResult<()> {
         let path = Path::new(file);
-        let config = match path.extension().and_then(OsStr::to_str) {
+        match path.extension().and_then(OsStr::to_str) {
             Some("json") | Some("toml") | Some("yml") | Some("yaml") => {
                 let data = data::GeometryInfo::load(py, file)?;
-                Configuration::Data(Arc::new(data))
+
+                #[cfg(feature = "ipc")]
+                crate::ipc::send_data(py, data)?;
+
+                #[cfg(not(feature = "ipc"))]
+                Self::set_data(data);
             },
             Some("stl") => {
                 let path = path
@@ -67,18 +75,27 @@ impl GeometryPlugin{
                     .to_str()
                     .unwrap()
                     .to_string();
-                Configuration::Stl(path)
+
+                #[cfg(feature = "ipc")]
+                crate::ipc::send_stl(py, path)?;
+
+                #[cfg(not(feature = "ipc"))]
+                Self::set_stl(path);
             }
             _ => return Err(PyNotImplementedError::new_err("")),
-        };
-        *GEOMETRY.lock().unwrap() = config;
+        }
         Ok(())
     }
 
     pub fn from_volume(volume: &Bound<PyAny>) -> PyResult<()> {
         let data = data::GeometryInfo::from_volume(volume)?;
-        let config = Configuration::Data(Arc::new(data));
-        *GEOMETRY.lock().unwrap() = config;
+
+        #[cfg(feature = "ipc")]
+        crate::ipc::send_data(volume.py(), data)?;
+
+        #[cfg(not(feature = "ipc"))]
+        Self::set_data(data);
+
         Ok(())
     }
 
@@ -97,8 +114,29 @@ impl GeometryPlugin{
         }
     }
 
-    pub fn unload() {
+    #[cfg(feature = "ipc")]
+    pub fn unload(py: Python<'_>) -> PyResult<()> {
+        crate::ipc::send_close(py)
+    }
+
+    #[cfg(not(feature = "ipc"))]
+    pub fn unload(_py: Python<'_>) -> PyResult<()> {
+        Self::set_close();
+        Ok(())
+    }
+
+    pub(crate) fn set_close() {
         *GEOMETRY.lock().unwrap() = Configuration::Close;
+    }
+
+    pub(crate) fn set_data(data: data::GeometryInfo) {
+        let config = Configuration::Data(Arc::new(data));
+        *GEOMETRY.lock().unwrap() = config;
+    }
+
+    pub(crate) fn set_stl(path: String) {
+        let config = Configuration::Stl(path);
+        *GEOMETRY.lock().unwrap() = config;
     }
 }
 

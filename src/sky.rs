@@ -66,7 +66,7 @@ fn on_keyboard(
         *visibility = match *visibility {
             Visibility::Hidden => Visibility::Visible,
             Visibility::Visible => Visibility::Hidden,
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 }

@@ -9,14 +9,19 @@ use std::collections::HashMap;
 use super::jmol::JMOL;
 use super::units::Meters;
 
+#[cfg(feature = "ipc")]
+use serde::Serialize;
+
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct GeometryInfo {
     pub volumes: VolumeInfo,
     pub materials: HashMap<String, MaterialInfo>,
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct VolumeInfo {
     pub name: String,
     pub solid: SolidInfo,
@@ -26,6 +31,7 @@ pub struct VolumeInfo {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub enum SolidInfo {
     Box(BoxInfo),
     Mesh(MeshInfo),
@@ -35,18 +41,21 @@ pub enum SolidInfo {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct BoxInfo {
     pub size: [f64; 3],
     pub displacement: [f64; 3],
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct OrbInfo {
     pub radius: f64,
     pub displacement: [f64; 3],
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct SphereInfo {
     pub inner_radius: f64,
     pub outer_radius: f64,
@@ -57,16 +66,19 @@ pub struct SphereInfo {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 #[serde(transparent)]
 pub struct MeshInfo (pub Vec<f32>);
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct TransformInfo {
     pub translation: [f64; 3],
     pub rotation: [[f64; 3]; 3],
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct TubsInfo {
     pub inner_radius: f64,
     pub outer_radius: f64,
@@ -78,6 +90,7 @@ pub struct TubsInfo {
 
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "ipc", derive(Serialize))]
 pub struct MaterialInfo {
     pub density: f64,
     pub state: String,

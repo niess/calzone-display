@@ -42,14 +42,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-13, macos-14, windows-2022, windows-11-arm]
+        os: [macos-13]
+        # XXX os: [ubuntu-24.04, ubuntu-24.04-arm, macos-13, macos-14, windows-2022, windows-11-arm]
     if: ${{ inputs.wheel }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain (Windows-11/arm64)
-        if: ${{ matrix.os == 'windows-11-arm' }}
+        # XXX if: ${{ matrix.os == 'windows-11-arm' }}
         uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build agent (MacOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          cargo rustc --features ipc --release --crate-type=rlib --lib
+          cargo rustc --features ipc --release --bins
+          mkdir src/python/calzone-display/.bins
+          mv target/release/calzone-display-agent src/python/calzone-display/.bins
+          python3 .github/scripts/enable-ipc.py
 
       - name: Build wheel
         uses: pypa/cibuildwheel@v2.23.3  # 2.23.3: supports Python 3.7.

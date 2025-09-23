@@ -29,7 +29,7 @@ source = "https://github.com/niess/calzone-display"
 where = ["src/python"]
 
 [[tool.setuptools-rust.ext-modules]]
-target = "calzone_display.calzone_display"
+target = "calzone_display._core"
 
 # Build options for Python wheels.
 [tool.cibuildwheel.linux]

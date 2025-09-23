@@ -10,19 +10,22 @@ mod path;
 mod sky;
 mod ui;
 
+#[cfg(feature = "ipc")]
+pub mod ipc;
 
-///  Close the current display.
+
+/// Close the current display.
 #[pyfunction]
-#[pyo3(name="close", signature=())]
-fn close_display() {
-    geometry::GeometryPlugin::unload();
+#[pyo3(name="close")]
+fn close_display(py: Python<'_>) -> PyResult<()> {
+    geometry::GeometryPlugin::unload(py)
 }
 
 
 /// Display a Calzone geometry.
 #[pyfunction]
 #[pyo3(name="display", signature=(arg,/, *, data=None))]
-fn run_display<'py>(
+fn update_display<'py>(
     py: Python<'py>,
     arg: DisplayArg<'py>,
     data: Option<&Bound<'py, PyAny>>,
@@ -53,17 +56,18 @@ enum DisplayArg<'py> {
 
 /// A display extension for Calzone (CALorimeter ZONE)
 #[pymodule]
-fn calzone_display(module: &Bound<PyModule>) -> PyResult<()> {
+#[pyo3(name = "_core")]
+fn init(module: &Bound<PyModule>) -> PyResult<()> {
     // Initialise the events interface.
     let py = module.py();
     event::initialise(py)?;
 
-    // Spawn the display app in a dedicated thread.
+    // Spawn the display app.
     app::spawn(module)?;
 
     // Set the module's interface.
     module.add_function(wrap_pyfunction!(close_display, module)?)?;
-    module.add_function(wrap_pyfunction!(run_display, module)?)?;
+    module.add_function(wrap_pyfunction!(update_display, module)?)?;
 
     Ok(())
 }
