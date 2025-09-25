@@ -1,4 +1,8 @@
+use process_path::get_dylib_path;
 use pyo3::prelude::*;
+use pyo3::exceptions::PySystemError;
+use pyo3::sync::GILOnceCell;
+use std::path::{Path, PathBuf};
 
 mod app;
 mod event;
@@ -10,6 +14,24 @@ mod path;
 pub mod ipc;
 
 
+static PREFIX: GILOnceCell<PathBuf> = GILOnceCell::new();
+
+fn set_prefix(py: Python) -> PyResult<()> {
+    let filename = match get_dylib_path() {
+        Some(path) => path
+                        .to_string_lossy()
+                        .to_string(),
+        None => return Err(PySystemError::new_err("could not resolve module path")),
+    };
+    let prefix = match Path::new(&filename).parent() {
+        None => Path::new(".").to_path_buf(),
+        Some(path) => path.to_path_buf(),
+    };
+    PREFIX
+        .set(py, prefix).unwrap();
+    Ok(())
+}
+
 /// Close the current display.
 #[pyfunction]
 #[pyo3(name="close")]
@@ -19,7 +41,7 @@ fn close_display(_py: Python<'_>) -> PyResult<()> {
         crate::ipc::send_close(_py)
     }
 
-    #[cfg(not(feature = "ipc"))]
+    #[cfg(feature = "thread")]
     {
         display::geometry::set_close();
         Ok(())
@@ -61,8 +83,11 @@ enum DisplayArg<'py> {
 #[pymodule]
 #[pyo3(name = "_core")]
 fn init(module: &Bound<PyModule>) -> PyResult<()> {
-    // Initialise the events interface.
+    // Set the module prefix.
     let py = module.py();
+    set_prefix(py)?;
+
+    // Initialise the events interfaces.
     numpy::initialise(py)?;
 
     // Spawn the display app.

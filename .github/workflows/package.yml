@@ -42,24 +42,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-13]
-        # XXX os: [ubuntu-24.04, ubuntu-24.04-arm, macos-13, macos-14, windows-2022, windows-11-arm]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-13, macos-14, windows-2022, windows-11-arm]
     if: ${{ inputs.wheel }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain (Windows-11/arm64)
-        # XXX if: ${{ matrix.os == 'windows-11-arm' }}
+        if: ${{ matrix.os == 'windows-11-arm' }}
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build agent (MacOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          cd crates/agent
-          cargo build --release
-          cd -
-          mkdir calzone_display/.bins
-          mv crate/target/release/calzone-display-agent calzone_display/.bins
+          .github/scripts/build-agent.sh
           python3 .github/scripts/enable-ipc.py
 
       - name: Build wheel

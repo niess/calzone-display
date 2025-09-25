@@ -1,4 +1,4 @@
-use display::event::{CTrack, CVertex, EventsData};
+use data::event::{CTrack, CVertex, Events};
 use pyo3::prelude::*;
 use super::numpy::{Dtype, PyArray};
 
@@ -47,12 +47,12 @@ pub fn parse(data: &Bound<PyAny>) -> PyResult<()> {
 
     let tracks = Iter::new(tracks);
     let vertices = Iter::new(vertices);
-    let events = EventsData::new(tracks, vertices)?;
+    let events = Events::new(tracks, vertices)?;
 
     #[cfg(feature = "ipc")]
     crate::ipc::send_events(data.py(), events)?;
 
-    #[cfg(not(feature = "ipc"))]
+    #[cfg(feature = "thread")]
     display::event::set(events);
 
     Ok(())

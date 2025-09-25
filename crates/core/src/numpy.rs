@@ -1,4 +1,4 @@
-use display::event::{CTrack, CVertex};
+use data::event::{CTrack, CVertex};
 // PyO3 interface.
 use pyo3::prelude::*;
 use pyo3::{ffi, pyobject_native_type_extract, pyobject_native_type_named, PyTypeInfo};

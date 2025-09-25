@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["agent", "core", "display"]
+members = ["agent", "core", "data", "display"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -1,4 +1,4 @@
-use display::geometry::GeometryInfo;
+use data::geometry::GeometryInfo;
 use rmp_serde::Deserializer;
 use serde::Deserialize;
 use pyo3::prelude::*;
@@ -17,7 +17,7 @@ pub fn load(py: Python, file: &str) -> PyResult<()> {
             #[cfg(feature = "ipc")]
             crate::ipc::send_data(py, data)?;
 
-            #[cfg(not(feature = "ipc"))]
+            #[cfg(feature = "thread")]
             display::geometry::set_data(data);
         },
         Some("stl") => {
@@ -30,7 +30,7 @@ pub fn load(py: Python, file: &str) -> PyResult<()> {
             #[cfg(feature = "ipc")]
             crate::ipc::send_stl(py, path)?;
 
-            #[cfg(not(feature = "ipc"))]
+            #[cfg(feature = "thread")]
             display::geometry::set_stl(path);
         }
         _ => return Err(PyNotImplementedError::new_err("")),
@@ -44,7 +44,7 @@ pub fn from_volume(volume: &Bound<PyAny>) -> PyResult<()> {
     #[cfg(feature = "ipc")]
     crate::ipc::send_data(volume.py(), data)?;
 
-    #[cfg(not(feature = "ipc"))]
+    #[cfg(feature = "thread")]
     display::geometry::set_data(data);
 
     Ok(())

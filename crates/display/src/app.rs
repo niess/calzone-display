@@ -28,7 +28,7 @@ pub fn set_exit() {
     EXIT.store(true, Ordering::Relaxed);
 }
 
-pub fn start() -> u8 {
+pub fn run() -> u8 {
     let winit = if cfg!(target_os = "macos") {
         WinitPlugin::<WakeUp>::default()
     } else {

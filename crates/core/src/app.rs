@@ -1,18 +1,18 @@
 use pyo3::prelude::*;
 
-#[cfg(not(feature = "ipc"))]
+#[cfg(feature = "thread")]
 use std::{sync::Mutex, thread};
 
-#[cfg(not(feature = "ipc"))]
+#[cfg(feature = "thread")]
 static HANDLE: Mutex<Option<thread::JoinHandle<u8>>> = Mutex::new(None);
 
 pub fn spawn(module: &Bound<PyModule>) -> PyResult<()> {
     #[cfg(feature = "ipc")]
     crate::ipc::spawn_agent(module.py())?;
 
-    #[cfg(not(feature = "ipc"))]
+    #[cfg(feature = "thread")]
     {
-        let handle = thread::spawn(display::app::start);
+        let handle = thread::spawn(display::app::run);
         HANDLE
             .lock()
             .unwrap()
@@ -31,7 +31,7 @@ fn stop(py: Python<'_>) -> PyResult<()> {
     crate::ipc::send_stop(py)
 }
 
-#[cfg(not(feature = "ipc"))]
+#[cfg(feature = "thread")]
 #[pyfunction]
 fn stop(_py: Python<'_>) -> PyResult<()> {
     display::app::set_exit();

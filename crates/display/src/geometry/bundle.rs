@@ -4,7 +4,8 @@ use bevy::pbr::wireframe::WireframeMaterial;
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::primitives::Aabb;
 use crate::app::Removable;
-use super::data::{MaterialInfo, VolumeInfo};
+use super::data::{Color, MaterialInfo, ToTransform, VolumeInfo};
+use super::meshes::IntoMesh;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -85,7 +86,7 @@ where
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<T>,
     ) -> Self {
-        let mesh = Mesh::from(volume.solid);
+        let mesh = volume.solid.into_mesh();
         let material = Named::<T>::get_material(volume.material, material, materials);
         let transform = volume.transform.to_transform();
         *global_transform = global_transform.mul_transform(transform);

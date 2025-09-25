@@ -4,24 +4,27 @@ use bevy::render::render_asset::RenderAssetUsages;
 use super::data::{BoxInfo, MeshInfo, OrbInfo, SolidInfo, SphereInfo, TubsInfo};
 use super::units::Meters;
 
+pub(crate) trait IntoMesh {
+    fn into_mesh(self) -> Mesh;
+}
 
-impl From<SolidInfo> for Mesh {
-    fn from(value: SolidInfo) -> Self {
-        match value {
-            SolidInfo::Box(solid) => solid.into(),
-            SolidInfo::Mesh(solid) => solid.into(),
-            SolidInfo::Orb(solid) => solid.into(),
-            SolidInfo::Sphere(solid) => solid.into(),
-            SolidInfo::Tubs(solid) => solid.into(),
+impl IntoMesh for SolidInfo {
+    fn into_mesh(self) -> Mesh {
+        match self {
+            SolidInfo::Box(solid) => solid.into_mesh(),
+            SolidInfo::Mesh(solid) => solid.into_mesh(),
+            SolidInfo::Orb(solid) => solid.into_mesh(),
+            SolidInfo::Sphere(solid) => solid.into_mesh(),
+            SolidInfo::Tubs(solid) => solid.into_mesh(),
         }
     }
 }
 
-impl From<BoxInfo> for Mesh {
-    fn from(value: BoxInfo) -> Self {
-        let size: Vec3 = std::array::from_fn(|i| value.size[i].meters()).into();
+impl IntoMesh for BoxInfo  {
+    fn into_mesh(self) -> Mesh {
+        let size: Vec3 = std::array::from_fn(|i| self.size[i].meters()).into();
         let mut mesh: Mesh = Cuboid::from_size(size).into();
-        apply_any_displacement(&mut mesh, &value.displacement);
+        apply_any_displacement(&mut mesh, &self.displacement);
         mesh
     }
 }
@@ -33,31 +36,31 @@ fn apply_any_displacement(mesh: &mut Mesh, displacement: &[f64; 3]) {
     }
 }
 
-impl From<OrbInfo> for Mesh {
-    fn from(value: OrbInfo) -> Self {
-        let mut mesh = Sphere::new(value.radius.meters())
+impl IntoMesh for OrbInfo {
+    fn into_mesh(self) -> Mesh {
+        let mut mesh = Sphere::new(self.radius.meters())
             .mesh()
             .ico(7)
             .unwrap_or_else(|err| panic!("{}", err));
-        apply_any_displacement(&mut mesh, &value.displacement);
+        apply_any_displacement(&mut mesh, &self.displacement);
         mesh
     }
 }
 
-impl From<SphereInfo> for Mesh {
-    fn from(_value: SphereInfo) -> Self {
+impl IntoMesh for SphereInfo {
+    fn into_mesh(self) -> Mesh {
         unimplemented!()
     }
 }
 
-impl From<MeshInfo> for Mesh {
-    fn from(value: MeshInfo) -> Self {
-        let n = value.0.len() / 3;
+impl IntoMesh for MeshInfo {
+    fn into_mesh(self) -> Mesh {
+        let n = self.0.len() / 3;
         let mut vertices = Vec::with_capacity(n); // Vertices are duplicated in order to properly
         let mut normals = Vec::with_capacity(n);  // apply faces normals.
         let mut indices = Vec::with_capacity(n);
 
-        for (i, facet) in value.0.chunks_exact(9).enumerate() {
+        for (i, facet) in self.0.chunks_exact(9).enumerate() {
             let v: [[f32; 3]; 3] = std::array::from_fn(|j| {
                 let v = &facet[(3 * j)..(3 * (j + 1))];
                 std::array::from_fn(|k| v[k].meters())
@@ -72,22 +75,22 @@ impl From<MeshInfo> for Mesh {
             }
         }
 
-        MeshData { vertices, normals, indices }.into()
+        MeshData { vertices, normals, indices }.into_mesh()
     }
 }
 
-impl From<TubsInfo> for Mesh {
-    fn from(value: TubsInfo) -> Self {
-        let mut mesh = if value.inner_radius == 0.0 {
-            if value.delta_phi >= std::f64::consts::PI {
+impl IntoMesh for TubsInfo  {
+    fn into_mesh(self) -> Mesh {
+        let mut mesh = if self.inner_radius == 0.0 {
+            if self.delta_phi >= std::f64::consts::PI {
                 let mut mesh = Cylinder::new(
-                    value.outer_radius.meters(),
-                    value.length.meters(),
+                    self.outer_radius.meters(),
+                    self.length.meters(),
                 )
                     .mesh()
                     .resolution(256)
                     .build();
-                apply_any_displacement(&mut mesh, &value.displacement);
+                apply_any_displacement(&mut mesh, &self.displacement);
                 mesh
             } else {
                 unimplemented!()
@@ -127,13 +130,13 @@ impl MeshData {
     }
 }
 
-impl From<MeshData> for Mesh {
-    fn from(value: MeshData) -> Self {
-        let vertices = VertexAttributeValues::Float32x3(value.vertices);
-        let normals = VertexAttributeValues::Float32x3(value.normals);
-        let indices = Indices::U32(value.indices);
+impl IntoMesh for MeshData {
+    fn into_mesh(self) -> Mesh {
+        let vertices = VertexAttributeValues::Float32x3(self.vertices);
+        let normals = VertexAttributeValues::Float32x3(self.normals);
+        let indices = Indices::U32(self.indices);
 
-        Self::new(
+        Mesh::new(
                 PrimitiveTopology::TriangleList,
                 RenderAssetUsages::RENDER_WORLD,
             )

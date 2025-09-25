@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use super::meshes::MeshData;
+use super::meshes::{IntoMesh, MeshData};
 
 
 pub fn load(
@@ -58,7 +58,7 @@ impl LoadSettings {
             }
         }
 
-        MeshData { vertices, normals, indices }.into()
+        MeshData { vertices, normals, indices }.into_mesh()
     }
 
     fn build_interpolate(&self, mesh: stl_io::IndexedMesh) -> Mesh {
@@ -95,7 +95,7 @@ impl LoadSettings {
             n
         };
 
-        MeshData { vertices, normals, indices }.into()
+        MeshData { vertices, normals, indices }.into_mesh()
     }
 
     #[inline]

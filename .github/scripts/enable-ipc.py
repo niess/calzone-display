@@ -16,9 +16,13 @@ def replace(path, rules):
 
 
 path = PREFIX / 'pyproject.toml'
-pattern = 'target = "calzone_display._core"'
+pattern = '[[tool.setuptools-rust.ext-modules]]'
 replacement = '''
-target = "calzone_display._core"
+[tool.setuptools.package-data]
+calzone_display = [".bins/*"]
+
+[[tool.setuptools-rust.ext-modules]]
+args = ["--no-default-features"]
 features = ["ipc"]
 '''
 replace(path, { pattern: replacement })

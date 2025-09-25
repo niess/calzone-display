@@ -11,11 +11,13 @@ mod colours;
 mod data;
 mod picking;
 
-pub use data::Events as EventsData;
-pub use data::{CTrack, CVertex, set};
+pub use data::set;
 
+pub(crate) use data::Events as EventsData;
 pub(crate) use data::Event as EventData;
+pub(crate) use data::Target;
 pub(crate) use data::Track as TrackData;
+use data::AsVec3;
 
 
 pub(crate) struct EventPlugin;
@@ -127,7 +129,7 @@ fn draw_event(
                         let vertex_material = materials.add(vertex_material);
                         let vertices: Vec<Vec3> = track.vertices
                             .iter()
-                            .map(|v| v.position)
+                            .map(|v| *v.position.as_vec3())
                             .collect();
                         let polyline = Polyline { vertices };
                         let material = PolylineMaterial {
@@ -155,7 +157,7 @@ fn draw_event(
                                             material: vertex_material.clone(),
                                             mesh: vertex_mesh.clone(),
                                             transform: Transform::from_translation(
-                                                vertex.position
+                                                *vertex.position.as_vec3()
                                             ),
                                             ..default()
                                         },

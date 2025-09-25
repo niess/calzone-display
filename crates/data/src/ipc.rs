@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use display::event::EventsData;
-use display::geometry::GeometryInfo;
+use super::event::Events;
+use super::geometry::GeometryInfo;
 
 
 #[derive(Serialize, Deserialize)]
-pub enum Data {
+pub enum Token {
     Close,
-    Events(EventsData),
+    Events(Events),
     Geometry(GeometryInfo),
     Stop,
     Stl(String),
