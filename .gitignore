@@ -2,4 +2,4 @@
 Cargo.lock
 *.pyc
 *.so
-/target
+/crates/target

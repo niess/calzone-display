@@ -1,0 +1,17 @@
+[package]
+name = "agent"
+version = "0.4.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "calzone-display-agent"
+path = "src/bin/agent.rs"
+
+[dependencies]
+ipc-channel = { workspace = true }
+serde = { workspace = true }
+
+display = { path = "../display" }

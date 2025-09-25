@@ -25,11 +25,9 @@ dependencies = [
 [project.urls]
 source = "https://github.com/niess/calzone-display"
 
-[tool.setuptools.packages.find]
-where = ["src/python"]
-
 [[tool.setuptools-rust.ext-modules]]
 target = "calzone_display._core"
+path = "crates/core"
 
 # Build options for Python wheels.
 [tool.cibuildwheel.linux]

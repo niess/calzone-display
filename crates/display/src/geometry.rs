@@ -5,10 +5,7 @@ use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
 use bevy::render::primitives::Aabb;
 use crate::app::{AppState, Removable};
 use convert_case::{Case, Casing};
-use pyo3::prelude::*;
-use pyo3::exceptions::PyNotImplementedError;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::ops::DerefMut;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -20,30 +17,29 @@ mod meshes;
 mod stl;
 mod units;
 
-#[cfg(feature = "ipc")]
-pub(crate) use data::GeometryInfo;
+pub use data::GeometryInfo;
 
 
-pub struct GeometryPlugin;
+pub(crate) struct GeometryPlugin;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GeometrySet;
+pub(crate) struct GeometrySet;
 
 #[derive(Component)]
-pub struct RootVolume;
+pub(crate) struct RootVolume;
 
 #[derive(Component)]
-pub struct Volume {
+pub(crate) struct Volume {
     pub name: String,
     pub aabb: Aabb,
     pub expanded: bool,
 }
 
 #[derive(Component)]
-pub struct Plain;
+pub(crate) struct Plain;
 
 #[derive(Component)]
-pub struct Transparent;
+pub(crate) struct Transparent;
 
 #[derive(Default)]
 pub(crate) enum Configuration {
@@ -56,49 +52,21 @@ pub(crate) enum Configuration {
 
 static GEOMETRY: Mutex<Configuration> = Mutex::new(Configuration::None);
 
+pub fn set_close() {
+    *GEOMETRY.lock().unwrap() = Configuration::Close;
+}
+
+pub fn set_data(data: data::GeometryInfo) {
+    let config = Configuration::Data(Arc::new(data));
+    *GEOMETRY.lock().unwrap() = config;
+}
+
+pub fn set_stl(path: String) {
+    let config = Configuration::Stl(path);
+    *GEOMETRY.lock().unwrap() = config;
+}
+
 impl GeometryPlugin{
-    pub fn load(py: Python, file: &str) -> PyResult<()> {
-        let path = Path::new(file);
-        match path.extension().and_then(OsStr::to_str) {
-            Some("json") | Some("toml") | Some("yml") | Some("yaml") => {
-                let data = data::GeometryInfo::load(py, file)?;
-
-                #[cfg(feature = "ipc")]
-                crate::ipc::send_data(py, data)?;
-
-                #[cfg(not(feature = "ipc"))]
-                Self::set_data(data);
-            },
-            Some("stl") => {
-                let path = path
-                    .canonicalize()?
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-
-                #[cfg(feature = "ipc")]
-                crate::ipc::send_stl(py, path)?;
-
-                #[cfg(not(feature = "ipc"))]
-                Self::set_stl(path);
-            }
-            _ => return Err(PyNotImplementedError::new_err("")),
-        }
-        Ok(())
-    }
-
-    pub fn from_volume(volume: &Bound<PyAny>) -> PyResult<()> {
-        let data = data::GeometryInfo::from_volume(volume)?;
-
-        #[cfg(feature = "ipc")]
-        crate::ipc::send_data(volume.py(), data)?;
-
-        #[cfg(not(feature = "ipc"))]
-        Self::set_data(data);
-
-        Ok(())
-    }
-
     pub fn is_data() -> bool {
         match *GEOMETRY.lock().unwrap() {
             Configuration::Data(_) => true,
@@ -112,31 +80,6 @@ impl GeometryPlugin{
             Configuration::None => false,
             _ => true,
         }
-    }
-
-    #[cfg(feature = "ipc")]
-    pub fn unload(py: Python<'_>) -> PyResult<()> {
-        crate::ipc::send_close(py)
-    }
-
-    #[cfg(not(feature = "ipc"))]
-    pub fn unload(_py: Python<'_>) -> PyResult<()> {
-        Self::set_close();
-        Ok(())
-    }
-
-    pub(crate) fn set_close() {
-        *GEOMETRY.lock().unwrap() = Configuration::Close;
-    }
-
-    pub(crate) fn set_data(data: data::GeometryInfo) {
-        let config = Configuration::Data(Arc::new(data));
-        *GEOMETRY.lock().unwrap() = config;
-    }
-
-    pub(crate) fn set_stl(path: String) {
-        let config = Configuration::Stl(path);
-        *GEOMETRY.lock().unwrap() = config;
     }
 }
 

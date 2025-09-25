@@ -9,16 +9,16 @@ use std::borrow::Cow;
 
 mod colours;
 mod data;
-mod numpy;
 mod picking;
 
 pub use data::Events as EventsData;
-pub use data::Event as EventData;
-pub use data::Track as TrackData;
-pub use numpy::initialise;
+pub use data::{CTrack, CVertex, set};
+
+pub(crate) use data::Event as EventData;
+pub(crate) use data::Track as TrackData;
 
 
-pub struct EventPlugin;
+pub(crate) struct EventPlugin;
 
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
@@ -38,16 +38,16 @@ impl Plugin for EventPlugin {
 }
 
 #[derive(Default, Resource)]
-pub struct Events {
-    pub data: data::Events,
+pub(crate) struct Events {
+    pub data: EventsData,
     pub index: usize,
 }
 
 #[derive(Component)]
-pub struct Event;
+pub(crate) struct Event;
 
 #[derive(Component)]
-pub struct Track {
+pub(crate) struct Track {
     pub tid: i32,
     pub parent: i32,
     pub pid: i32,
@@ -55,7 +55,7 @@ pub struct Track {
 }
 
 #[derive(Component)]
-pub struct Vertex {
+pub(crate) struct Vertex {
     pub energy: f32,
     pub process: String,
     pub volume: String,
@@ -65,7 +65,7 @@ pub struct Vertex {
 struct VertexSize (f32);
 
 fn update_events(mut events: ResMut<Events>) {
-    if let Some(data) = data::Events::take() {
+    if let Some(data) = data::take() {
         *events = Events {
             data,
             index: 0,
@@ -216,10 +216,10 @@ impl<'a> From<&'a data::Vertex> for Vertex {
 }
 
 #[derive(Component)]
-pub struct EventCamera;
+pub(crate) struct EventCamera;
 
 #[derive(Bundle)]
-pub struct EventBundle (EventCamera, Camera3dBundle, RenderLayers);
+pub(crate) struct EventBundle (EventCamera, Camera3dBundle, RenderLayers);
 
 impl EventBundle {
     pub fn new(fov: f32) -> Self {

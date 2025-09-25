@@ -1,27 +1,17 @@
-use bevy::prelude::*;
-use ipc_channel::ipc::{self, IpcOneShotServer, IpcReceiver, IpcSender};
+use ipc_channel::ipc::{IpcOneShotServer, IpcSender};
 use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::sync::GILOnceCell;
-use serde::{Deserialize, Serialize};
 use std::process::{Child, Command};
 use std::sync::Mutex;
-use super::app::start;
-use super::event::EventsData;
-use super::geometry::{GeometryInfo, GeometryPlugin};
+
+use agent::Data;
+use display::event::EventsData;
+use display::geometry::GeometryInfo;
 
 struct Pipe {
     process: Child,
     tx: IpcSender<Data>,
-}
-
-#[derive(Serialize, Deserialize)]
-enum Data {
-    Close,
-    Events(EventsData),
-    Geometry(GeometryInfo),
-    Stop,
-    Stl(String),
 }
 
 static PIPE: GILOnceCell<Mutex<Pipe>> = GILOnceCell::new();
@@ -88,32 +78,4 @@ pub(crate) fn send_stop(py: Python<'_>) -> PyResult<()> {
     pipe.tx.send(Data::Stop).unwrap();
     let _ = pipe.process.wait();
     Ok(())
-}
-
-pub fn run_agent(oss: String) -> AppExit {
-    let (tx, rx): (IpcSender<Data>, IpcReceiver<Data>) = ipc::channel().unwrap();
-    let oss = IpcSender::connect(oss).unwrap();
-    oss.send(tx).unwrap();
-    let receiver = std::thread::spawn(move || loop {
-        match rx.try_recv() {
-            Ok(data) => match data {
-                Data::Close => GeometryPlugin::set_close(),
-                Data::Events(events) => EventsData::set(events),
-                Data::Geometry(data) => GeometryPlugin::set_data(data),
-                Data::Stop => {
-                    super::app::set_exit();
-                    break
-                },
-                Data::Stl(path) => GeometryPlugin::set_stl(path),
-            },
-            Err(_) => {
-                std::thread::sleep(std::time::Duration::from_millis(1));
-            }
-        }
-    });
-    let rc = start();
-    if let Err(err) = receiver.join() {
-        std::panic::resume_unwind(err);
-    }
-    rc
 }

@@ -1,14 +1,10 @@
 use pyo3::prelude::*;
 
 mod app;
-mod drone;
-mod display;
 mod event;
 mod geometry;
-mod lighting;
+mod numpy;
 mod path;
-mod sky;
-mod ui;
 
 #[cfg(feature = "ipc")]
 pub mod ipc;
@@ -17,10 +13,18 @@ pub mod ipc;
 /// Close the current display.
 #[pyfunction]
 #[pyo3(name="close")]
-fn close_display(py: Python<'_>) -> PyResult<()> {
-    geometry::GeometryPlugin::unload(py)
-}
+fn close_display(_py: Python<'_>) -> PyResult<()> {
+    #[cfg(feature = "ipc")]
+    {
+        crate::ipc::send_close(_py)
+    }
 
+    #[cfg(not(feature = "ipc"))]
+    {
+        display::geometry::set_close();
+        Ok(())
+    }
+}
 
 /// Display a Calzone geometry.
 #[pyfunction]
@@ -34,14 +38,14 @@ fn update_display<'py>(
     match arg {
         DisplayArg::Path(path) => {
             let path = path.to_string();
-            geometry::GeometryPlugin::load(py, path.as_str())?;
+            geometry::load(py, path.as_str())?;
         },
-        DisplayArg::Any(any) => geometry::GeometryPlugin::from_volume(&any)?,
+        DisplayArg::Any(any) => geometry::from_volume(&any)?,
     }
 
     // Parse any tracking data.
     if let Some(data) = data {
-        event::EventsData::parse(data)?;
+        event::parse(data)?;
     }
 
     Ok(())
@@ -53,14 +57,13 @@ enum DisplayArg<'py> {
     Any(Bound<'py, PyAny>),
 }
 
-
 /// A display extension for Calzone (CALorimeter ZONE)
 #[pymodule]
 #[pyo3(name = "_core")]
 fn init(module: &Bound<PyModule>) -> PyResult<()> {
     // Initialise the events interface.
     let py = module.py();
-    event::initialise(py)?;
+    numpy::initialise(py)?;
 
     // Spawn the display app.
     app::spawn(module)?;

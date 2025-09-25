@@ -1,13 +1,9 @@
 use bevy::prelude::*;
 use crate::drone::Drone;
-use pyo3::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::sync::Mutex;
-use super::numpy::PyArray;
-
-#[cfg(feature = "ipc")]
-use serde::{Deserialize, Serialize};
 
 
 // ===============================================================================================
@@ -16,16 +12,15 @@ use serde::{Deserialize, Serialize};
 //
 // ===============================================================================================
 
-#[derive(Default)]
-#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
-pub struct Events (pub HashMap<usize, Event>);
+#[derive(Default, Deserialize, Serialize)]
+pub struct Events (pub(crate) HashMap<usize, Event>);
 
-#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
+#[derive(Default, Deserialize, Serialize)]
 pub struct Event {
     pub tracks: HashMap<i32, Track>
 }
 
-#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
+#[derive(Deserialize, Serialize)]
 pub struct Track {
     pub tid: i32,
     pub parent: i32,
@@ -35,7 +30,7 @@ pub struct Track {
     pub vertices: Vec<Vertex>,
 }
 
-#[cfg_attr(feature = "ipc", derive(Serialize, Deserialize))]
+#[derive(Deserialize, Serialize)]
 pub struct Vertex {
     pub energy: f32,
     pub position: Vec3,
@@ -45,30 +40,41 @@ pub struct Vertex {
 
 static EVENTS: Mutex<Option<Events>> = Mutex::new(None);
 
-impl Events {
-    pub fn parse(data: &Bound<PyAny>) -> PyResult<()> {
-        let tracks = data.getattr("tracks")?;
-        let tracks: &PyArray<CTrack> = tracks.extract()?;
-        let vertices = data.getattr("vertices")?;
-        let vertices: &PyArray<CVertex> = vertices.extract()?;
+pub(crate) fn take() -> Option<Events> {
+    EVENTS.lock().unwrap().take()
+}
 
+pub fn set(events: Events) {
+    *EVENTS.lock().unwrap() = Some(events);
+}
+
+impl Events {
+    pub fn new<E, T, V>(
+        tracks: T,
+        vertices: V,
+    ) -> Result<Self, E>
+    where
+        E: std::error::Error,
+        T: IntoIterator<Item=Result<CTrack, E>>,
+        V: IntoIterator<Item=Result<CVertex, E>>,
+    {
         let mut events: HashMap<usize, Event> = HashMap::new();
-        for i in 0..tracks.size() {
-            let track = tracks.get(i)?;
+        for track in tracks {
+            let track = track?;
             events
                 .entry(track.event)
                 .and_modify(|event| {
                     event.tracks.insert(track.tid, track.into());
                 })
                 .or_insert_with(|| {
-                    let mut event = Event::new();
+                    let mut event = Event::default();
                     event.tracks.insert(track.tid, track.into());
                     event
                 });
         }
 
-        for i in 0..vertices.size() {
-            let vertex = vertices.get(i)?;
+        for vertex in vertices {
+            let vertex = vertex?;
             events
                 .entry(vertex.event)
                 .and_modify(|event| {
@@ -104,29 +110,7 @@ impl Events {
         }
 
         let events = Self(events);
-
-        #[cfg(feature = "ipc")]
-        crate::ipc::send_events(data.py(), events)?;
-
-        #[cfg(not(feature = "ipc"))]
-        Self::set(events);
-
-        Ok(())
-    }
-
-    pub fn take() -> Option<Self> {
-        EVENTS.lock().unwrap().take()
-    }
-
-    pub(crate) fn set(events: Self) {
-        *EVENTS.lock().unwrap() = Some(events);
-    }
-}
-
-impl Event {
-    fn new() -> Self {
-        let tracks = HashMap::new();
-        Self { tracks }
+        Ok(events)
     }
 }
 
@@ -151,6 +135,35 @@ impl Track {
         Transform::from_translation(start_position)
             .looking_at(origin, Vec3::Z)
     }
+}
+
+
+// ===============================================================================================
+//
+// Input format (From NumPy arrays).
+//
+// ===============================================================================================
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct CTrack {
+    pub event: usize,
+    pub tid: i32,
+    pub parent: i32,
+    pub pid: i32,
+    pub creator: [u8; 16],
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct CVertex {
+    pub event: usize,
+    pub tid: i32,
+    pub energy: f64,
+    pub position: [f64; 3],
+    pub direction: [f64; 3],
+    pub volume: [u8; 16],
+    pub process: [u8; 16],
 }
 
 impl From<CTrack> for Track {
@@ -185,33 +198,4 @@ impl From<CVertex> for Vertex {
         let volume = volume.to_str().unwrap().to_string();
         Self { energy, position, process, volume }
     }
-}
-
-
-// ===============================================================================================
-//
-// NumPy / C-structures used by Calzone.
-//
-// ===============================================================================================
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct CTrack {
-    event: usize,
-    tid: i32,
-    parent: i32,
-    pid: i32,
-    creator: [u8; 16],
-}
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct CVertex {
-    event: usize,
-    tid: i32,
-    energy: f64,
-    position: [f64; 3],
-    direction: [f64; 3],
-    volume: [u8; 16],
-    process: [u8; 16],
 }

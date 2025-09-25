@@ -55,10 +55,11 @@ jobs:
       - name: Build agent (MacOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          cargo rustc --features ipc --release --crate-type=rlib --lib
-          cargo rustc --features ipc --release --bins
-          mkdir src/python/calzone-display/.bins
-          mv target/release/calzone-display-agent src/python/calzone-display/.bins
+          cd crates/agent
+          cargo build --release
+          cd -
+          mkdir calzone_display/.bins
+          mv crate/target/release/calzone-display-agent calzone_display/.bins
           python3 .github/scripts/enable-ipc.py
 
       - name: Build wheel

@@ -3,7 +3,6 @@ use bevy::log::{Level, LogPlugin};
 use bevy::window::{ExitCondition::DontExit, PrimaryWindow};
 use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
 use bevy_rapier3d::prelude::*;
-use pyo3::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use super::display::DisplayPlugin;
 use super::drone::DronePlugin;
@@ -13,46 +12,24 @@ use super::lighting::LightingPlugin;
 use super::sky::SkyPlugin;
 use super::ui::UiPlugin;
 
-#[cfg(not(feature = "ipc"))]
-use std::{sync::Mutex, thread};
-
-
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum AppState {
+pub(crate) enum AppState {
     Display,
     #[default]
     Iddle,
 }
 
 #[derive(Component)]
-pub struct Removable;
-
-#[cfg(not(feature = "ipc"))]
-static HANDLE: Mutex<Option<thread::JoinHandle<AppExit>>> = Mutex::new(None);
+pub(crate) struct Removable;
 
 static EXIT: AtomicBool = AtomicBool::new(false);
 
-pub fn spawn(module: &Bound<PyModule>) -> PyResult<()> {
-    #[cfg(feature = "ipc")]
-    crate::ipc::spawn_agent(module.py())?;
-
-    #[cfg(not(feature = "ipc"))]
-    {
-        let handle = thread::spawn(start);
-        HANDLE
-            .lock()
-            .unwrap()
-            .replace(handle);
-    }
-
-    let stopper = wrap_pyfunction!(stop, module)?;
-    module.py().import_bound("atexit")?
-      .call_method1("register", (stopper,))?;
-    Ok(())
+pub fn set_exit() {
+    EXIT.store(true, Ordering::Relaxed);
 }
 
-pub(crate) fn start() -> AppExit {
-    let winit = if cfg!(feature = "ipc") {
+pub fn start() -> u8 {
+    let winit = if cfg!(target_os = "macos") {
         WinitPlugin::<WakeUp>::default()
     } else {
         let mut winit = WinitPlugin::<WakeUp>::default();
@@ -80,7 +57,7 @@ pub(crate) fn start() -> AppExit {
     };
 
     let mut app = App::new();
-    app
+    let rc = app
         .add_plugins((
             DefaultPlugins.build()
                 .set(log)
@@ -102,31 +79,12 @@ pub(crate) fn start() -> AppExit {
             iddle_system.run_if(in_state(AppState::Iddle)),
             display_system.run_if(in_state(AppState::Display)),
         ))
-        .run()
-}
+        .run();
 
-pub(crate) fn set_exit() {
-    EXIT.store(true, Ordering::Relaxed);
-}
-
-#[cfg(feature = "ipc")]
-#[pyfunction]
-fn stop(py: Python<'_>) -> PyResult<()> {
-    crate::ipc::send_stop(py)
-}
-
-#[cfg(not(feature = "ipc"))]
-#[pyfunction]
-fn stop(_py: Python<'_>) -> PyResult<()> {
-    set_exit();
-    let handle = HANDLE
-        .lock()
-        .unwrap()
-        .take();
-    if let Some(handle) = handle {
-        handle.join().unwrap();
+    match rc {
+        AppExit::Success => 0,
+        AppExit::Error(rc) => rc.get(),
     }
-    Ok(())
 }
 
 fn setup_physics(mut config: ResMut<RapierConfiguration>) {
@@ -160,7 +118,7 @@ fn iddle_system(
     }
 }
 
-pub fn clear_all(
+fn clear_all(
     entities: Query<Entity, With<Removable>>,
     mut commands: Commands,
 ) {
