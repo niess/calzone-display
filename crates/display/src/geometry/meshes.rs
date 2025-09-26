@@ -1,5 +1,7 @@
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
+use bevy::render::mesh::{
+    Extrudable, Indices, PerimeterSegment, PrimitiveTopology, VertexAttributeValues,
+};
 use bevy::render::render_asset::RenderAssetUsages;
 use super::data::{BoxInfo, MeshInfo, OrbInfo, SolidInfo, SphereInfo, TubsInfo};
 use super::units::Meters;
@@ -81,32 +83,62 @@ impl IntoMesh for MeshInfo {
 
 impl IntoMesh for TubsInfo  {
     fn into_mesh(self) -> Mesh {
+        const RESOLUTION: u32 = 256;
         let mut mesh = if self.inner_radius == 0.0 {
-            if self.delta_phi >= std::f64::consts::PI {
+            if self.delta_phi >= std::f64::consts::TAU {
                 let mut mesh = Cylinder::new(
                     self.outer_radius.meters(),
                     self.length.meters(),
                 )
                     .mesh()
-                    .resolution(256)
+                    .resolution(RESOLUTION)
                     .build();
-                apply_any_displacement(&mut mesh, &self.displacement);
+                let quat = Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+                mesh.rotate_by(quat);
                 mesh
             } else {
-                unimplemented!()
+                let sector = CircularSector::new(
+                    self.outer_radius.meters(),
+                    (0.5 * self.delta_phi) as f32,
+                );
+                let mut mesh = Extrusion::new(sector, self.length.meters())
+                    .mesh()
+                    .build();
+                let angle = (self.start_phi + 0.5 * self.delta_phi) as f32;
+                if angle.abs() > f32::EPSILON {
+                    let quat = Quat::from_rotation_z(angle);
+                    mesh.rotate_by(quat);
+                }
+                mesh
             }
         } else {
-            unimplemented!()
-        };
-
-        for (_, values) in mesh.attributes_mut() {
-            if let VertexAttributeValues::Float32x3(values) = values {
-                for v in values.iter_mut() {
-                    v.swap(1, 2);
+            if self.delta_phi >= std::f64::consts::TAU {
+                let annulus = Annulus::new(
+                    self.inner_radius.meters(),
+                    self.outer_radius.meters(),
+                );
+                Extrusion::new(annulus, self.length.meters())
+                    .mesh()
+                    .resolution(RESOLUTION as usize)
+                    .build()
+            } else {
+                let sector = AnnulusSector {
+                    inner_radius: self.inner_radius.meters(),
+                    outer_radius: self.outer_radius.meters(),
+                    half_angle: (0.5 * self.delta_phi) as f32,
+                };
+                let mut mesh = Extrusion::new(sector, self.length.meters())
+                    .mesh()
+                    .build();
+                let angle = (self.start_phi + 0.5 * self.delta_phi) as f32;
+                if angle.abs() > f32::EPSILON {
+                    let quat = Quat::from_rotation_z(angle);
+                    mesh.rotate_by(quat);
                 }
+                mesh
             }
-        }
-
+        };
+        apply_any_displacement(&mut mesh, &self.displacement);
         mesh
     }
 }
@@ -137,11 +169,121 @@ impl IntoMesh for MeshData {
         let indices = Indices::U32(self.indices);
 
         Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::RENDER_WORLD,
-            )
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::RENDER_WORLD,
+        )
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_indices(indices)
+    }
+}
+
+#[derive(Clone, Copy)]
+struct AnnulusSector {
+    inner_radius: f32,
+    outer_radius: f32,
+    half_angle: f32,
+}
+
+struct AnnulusSectorBuilder {
+    sector: AnnulusSector,
+    resolution: u32,
+}
+
+impl Meshable for AnnulusSector {
+    type Output = AnnulusSectorBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        let resolution = (((self.half_angle / std::f32::consts::PI) * 256.0) as u32).max(16);
+        AnnulusSectorBuilder {
+            sector: *self,
+            resolution,
+        }
+    }
+}
+
+impl Primitive2d for AnnulusSector {}
+
+impl MeshBuilder for AnnulusSectorBuilder {
+    fn build(&self) -> Mesh {
+        // Adapted from Bevy/AnnulusMeshBuilder.
+        let inner_radius = self.sector.inner_radius;
+        let outer_radius = self.sector.outer_radius;
+        let half_angle = self.sector.half_angle;
+        let resolution = self.resolution as usize;
+
+        let num_vertices = 2 * resolution;
+        let mut indices = Vec::with_capacity(6 * (resolution - 1));
+        let mut positions = Vec::with_capacity(num_vertices);
+        let mut uvs = Vec::with_capacity(num_vertices);
+        let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
+
+        // Each iteration places a pair of vertices at a fixed angle from the center of the
+        // annulus.
+        let start_angle = -half_angle;
+        let step = 2.0 * half_angle / (resolution - 1) as f32;
+        for i in 0..resolution {
+            let theta = start_angle + i as f32 * step;
+            let (sin, cos) = theta.sin_cos();
+            let inner_pos = [cos * inner_radius, sin * inner_radius, 0.];
+            let outer_pos = [cos * outer_radius, sin * outer_radius, 0.];
+            positions.push(inner_pos);
+            positions.push(outer_pos);
+
+            // The first UV direction is radial and the second is angular; i.e., a single UV
+            // rectangle is stretched around the annulus, with its top and bottom meeting as the
+            // circle closes. Lines of constant U map to circles, and lines of constant V map to
+            // radial line segments.
+            let inner_uv = [0., i as f32 / (resolution - 1) as f32];
+            let outer_uv = [1., i as f32 / (resolution - 1) as f32];
+            uvs.push(inner_uv);
+            uvs.push(outer_uv);
+        }
+
+        // Adjacent pairs of vertices form two triangles with each other; here, we are just making
+        // sure that they both have the right orientation, which is the CCW order of
+        // `inner_vertex` -> `outer_vertex` -> `next_outer` -> `next_inner`
+        for i in 0..((resolution - 1) as u32) {
+            let inner_vertex = 2 * i;
+            let outer_vertex = 2 * i + 1;
+            let next_inner = inner_vertex + 2;
+            let next_outer = outer_vertex + 2;
+            indices.extend_from_slice(&[inner_vertex, outer_vertex, next_outer]);
+            indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Extrudable for AnnulusSectorBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let vert_count = 2 * self.resolution;
+        let (s, c) = self.sector.half_angle.sin_cos();
+        vec![
+            PerimeterSegment::Flat {
+                indices: vec![1, 0],
+            },
+            PerimeterSegment::Smooth {
+                first_normal: Vec2 { x: c, y: -s },
+                last_normal: Vec2 { x: c, y: s },
+                indices: (0..vert_count).step_by(2).rev().collect(),
+            },
+            PerimeterSegment::Smooth {
+                first_normal: Vec2 { x: -c, y: -s },
+                last_normal: Vec2 { x: -c, y: s },
+                indices: (1..vert_count).step_by(2).collect(),
+            },
+            PerimeterSegment::Flat {
+                indices: vec![vert_count - 2, vert_count - 1],
+            },
+        ]
     }
 }
