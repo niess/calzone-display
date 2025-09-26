@@ -4,7 +4,7 @@ from pathlib import Path
 PREFIX = Path(__file__).parent.parent.parent
 
 
-def replace(path, rules):
+def replace_in(path, rules):
     with open(path) as f:
         text = f.read()
 
@@ -16,8 +16,10 @@ def replace(path, rules):
 
 
 path = PREFIX / 'pyproject.toml'
-pattern = '[[tool.setuptools-rust.ext-modules]]'
-replacement = '''
+search = '''
+[[tool.setuptools-rust.ext-modules]]
+'''
+replace = '''
 [tool.setuptools.package-data]
 calzone_display = [".bins/*"]
 
@@ -25,4 +27,4 @@ calzone_display = [".bins/*"]
 args = ["--no-default-features"]
 features = ["ipc"]
 '''
-replace(path, { pattern: replacement })
+replace_in(path, { search: replace })

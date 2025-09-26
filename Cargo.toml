@@ -1,15 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["agent", "core", "data", "display"]
+members = ["crates/*"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 ipc-channel = "0.20"
 
-# Enable a small amount of optimization in the dev profile.
 [profile.dev]
 opt-level = 1
 
-# Enable a large amount of optimization in the dev profile for dependencies.
 [profile.dev.package."*"]
 opt-level = 3

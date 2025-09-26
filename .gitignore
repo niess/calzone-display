@@ -3,4 +3,4 @@ Cargo.lock
 *.pyc
 *.so
 /calzone_display/.bins
-/crates/target
+/target
