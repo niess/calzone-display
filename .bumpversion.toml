@@ -1,0 +1,66 @@
+[tool.bumpversion]
+commit = true
+current_version = '0.4.0'
+message = 'Bump version: v{new_version}'
+
+[[tool.bumpversion.files]]
+filename = "crates/agent/Cargo.toml"
+search = '''
+[package]
+name = "calzone-display-agent"
+version = "{current_version}"
+'''
+replace = '''
+[package]
+name = "calzone-display-agent"
+version = "{new_version}"
+'''
+
+[[tool.bumpversion.files]]
+filename = "crates/core/Cargo.toml"
+search = '''
+[package]
+name = "core"
+version = "{current_version}"
+'''
+replace = '''
+[package]
+name = "core"
+version = "{new_version}"
+'''
+
+[[tool.bumpversion.files]]
+filename = "crates/data/Cargo.toml"
+search = '''
+[package]
+name = "data"
+version = "{current_version}"
+'''
+replace = '''
+[package]
+name = "data"
+version = "{new_version}"
+'''
+
+[[tool.bumpversion.files]]
+filename = "crates/display/Cargo.toml"
+search = '''
+[package]
+name = "display"
+version = "{current_version}"
+'''
+replace = '''
+[package]
+name = "display"
+version = "{new_version}"
+'''
+
+[[tool.bumpversion.files]]
+filename = 'pyproject.toml'
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = 'calzone_display/__init__.py'
+search = 'VERSION = "{current_version}"'
+replace = 'VERSION = "{new_version}"'
