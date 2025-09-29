@@ -51,7 +51,8 @@ impl IntoMesh for OrbInfo {
 
 impl IntoMesh for SphereInfo {
     fn into_mesh(self) -> Mesh {
-        unimplemented!()
+        UvSphereBuilder::new(self)
+            .build()
     }
 }
 
@@ -190,6 +191,13 @@ struct AnnulusSectorBuilder {
     resolution: u32,
 }
 
+struct RawMesh {
+    vertices: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
+}
+
 impl Meshable for AnnulusSector {
     type Output = AnnulusSectorBuilder;
 
@@ -214,7 +222,7 @@ impl MeshBuilder for AnnulusSectorBuilder {
 
         let num_vertices = 2 * resolution;
         let mut indices = Vec::with_capacity(6 * (resolution - 1));
-        let mut positions = Vec::with_capacity(num_vertices);
+        let mut vertices = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
         let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
 
@@ -227,8 +235,8 @@ impl MeshBuilder for AnnulusSectorBuilder {
             let (sin, cos) = theta.sin_cos();
             let inner_pos = [cos * inner_radius, sin * inner_radius, 0.];
             let outer_pos = [cos * outer_radius, sin * outer_radius, 0.];
-            positions.push(inner_pos);
-            positions.push(outer_pos);
+            vertices.push(inner_pos);
+            vertices.push(outer_pos);
 
             // The first UV direction is radial and the second is angular; i.e., a single UV
             // rectangle is stretched around the annulus, with its top and bottom meeting as the
@@ -252,14 +260,8 @@ impl MeshBuilder for AnnulusSectorBuilder {
             indices.extend_from_slice(&[next_outer, next_inner, inner_vertex]);
         }
 
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        )
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-            .with_inserted_indices(Indices::U32(indices))
+        RawMesh { indices, vertices, normals, uvs }
+            .into()
     }
 }
 
@@ -285,5 +287,330 @@ impl Extrudable for AnnulusSectorBuilder {
                 indices: vec![vert_count - 2, vert_count - 1],
             },
         ]
+    }
+}
+
+struct UvSphereBuilder {
+    sphere: SphereInfo,
+    sectors: usize,
+    stacks: usize,
+}
+
+enum CapKind {
+    Lower,
+    Upper,
+}
+
+enum SideKind {
+    Left,
+    Right,
+}
+
+enum ShellKind {
+    Inner,
+    Outer,
+}
+
+impl UvSphereBuilder {
+    fn new(sphere: SphereInfo) -> Self {
+        let sectors = (((sphere.delta_phi / std::f64::consts::PI) * 72.0) as usize).max(4);
+        let stacks = (((sphere.delta_theta / std::f64::consts::PI) * 32.0) as usize).max(2);
+        Self { sphere, sectors, stacks }
+    }
+
+    fn build_cap(&self, theta_lim: f32, kind: CapKind) -> Mesh {
+        let phi_step = self.sphere.delta_phi as f32 / self.sectors as f32;
+        let sgn = match kind {
+            CapKind::Lower => -1.0,
+            CapKind::Upper => 1.0,
+        };
+
+        let raw = if self.sphere.inner_radius <= f32::EPSILON as f64 {
+            let radius = self.sphere.outer_radius.meters();
+
+            let n_vertices = self.sectors + 2;
+            let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
+            let mut indices: Vec<u32> = Vec::with_capacity(3 * self.sectors);
+
+            let (st, ct) = theta_lim.sin_cos();
+            let rho = radius * st;
+            let z = radius * ct;
+            vertices.push([0.0, 0.0, 0.0]);
+            let phi0 = self.sphere.start_phi as f32 + 0.5 * phi_step;
+            let (sp, cp) = phi0.sin_cos();
+            normals.push([sgn * ct * cp, sgn * ct * sp, -sgn * st]);
+            uvs.push([0.0, 1.0]);
+            for j in 0..self.sectors + 1 {
+                let phi = self.sphere.start_phi as f32 + (j as f32) * phi_step;
+                let (sp, cp) = phi.sin_cos();
+                let x = rho * cp;
+                let y = rho * sp;
+
+                vertices.push([x, y, z]);
+                normals.push([sgn * ct * cp, sgn * ct * sp, -sgn * st]);
+                uvs.push([(j as f32) / self.sectors as f32, 0.0]);
+            }
+            for j in 0..self.sectors as u32 {
+                indices.push(0);
+                indices.push(j + 1);
+                indices.push(j + 2);
+            }
+            RawMesh { vertices, normals, uvs, indices }
+        } else {
+            let inner_radius = self.sphere.inner_radius.meters();
+            let outer_radius = self.sphere.outer_radius.meters();
+
+            let n_vertices = 2 * (self.sectors + 1);
+            let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
+            let mut indices: Vec<u32> = Vec::with_capacity(6 * self.sectors);
+
+            let (st, ct) = theta_lim.sin_cos();
+            let inner_rho = inner_radius * st;
+            let outer_rho = outer_radius * st;
+            let inner_z = inner_radius * ct;
+            let outer_z = outer_radius * ct;
+            let vmin = 1.0 - inner_radius / outer_radius;
+            for j in 0..self.sectors + 1 {
+                let phi = self.sphere.start_phi as f32 + (j as f32) * phi_step;
+                let (sp, cp) = phi.sin_cos();
+
+                vertices.extend([
+                    [inner_rho * cp, inner_rho * sp, inner_z],
+                    [outer_rho * cp, outer_rho * sp, outer_z],
+                ]);
+                normals.extend([
+                    [sgn * ct * cp, sgn * ct * sp, -sgn * st],
+                    [sgn * ct * cp, sgn * ct * sp, -sgn * st],
+                ]);
+                uvs.extend([
+                    [(j as f32) / self.sectors as f32, 0.0],
+                    [(j as f32) / self.sectors as f32, vmin],
+                ]);
+            }
+            for j in 0..self.sectors as u32 {
+                indices.push(2 * j);
+                indices.push(2 * j + 2);
+                indices.push(2 * j + 1);
+                indices.push(2 * j + 2);
+                indices.push(2 * j + 3);
+                indices.push(2 * j + 1);
+            }
+            RawMesh { vertices, normals, uvs, indices }
+        };
+        raw.into()
+    }
+
+    fn build_side(&self, phi_lim: f32, kind: SideKind) -> Mesh {
+        let theta_step = self.sphere.delta_theta as f32 / self.stacks as f32;
+        let (sp, cp) = phi_lim.sin_cos();
+        let normal = match kind {
+            SideKind::Left => [-cp, sp, 0.0],
+            SideKind::Right =>[cp, -sp, 0.0],
+        };
+
+        let raw = if self.sphere.inner_radius <= f32::EPSILON as f64 {
+            let radius = self.sphere.outer_radius.meters();
+
+            let n_vertices = self.stacks + 2;
+            let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
+            let mut indices: Vec<u32> = Vec::with_capacity(3 * self.stacks);
+
+            vertices.push([0.0, 0.0, 0.0]);
+            normals.push(normal);
+            uvs.push([0.0, 1.0]);
+            for i in 0..self.stacks + 1 {
+                let theta = self.sphere.start_theta as f32 + (i as f32) * theta_step;
+                let (st, ct) = theta.sin_cos();
+                let rho = radius * st;
+                let x = rho * cp;
+                let y = rho * sp;
+                let z = radius * ct;
+
+                vertices.push([x, y, z]);
+                normals.push(normal);
+                uvs.push([(i as f32) / self.stacks as f32, 0.0]);
+            }
+            for i in 0..self.stacks as u32 {
+                indices.push(0);
+                indices.push(i + 1);
+                indices.push(i + 2);
+            }
+            RawMesh { vertices, normals, uvs, indices }
+        } else {
+            let inner_radius = self.sphere.inner_radius.meters();
+            let outer_radius = self.sphere.outer_radius.meters();
+
+            let n_vertices = 2 * (self.stacks + 1);
+            let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+            let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
+            let mut indices: Vec<u32> = Vec::with_capacity(6 * self.stacks);
+
+            let vmin = 1.0 - inner_radius / outer_radius;
+            for i in 0..self.stacks + 1 {
+                let theta = self.sphere.start_theta as f32 + (i as f32) * theta_step;
+                let (st, ct) = theta.sin_cos();
+                let inner_rho = inner_radius * st;
+                let outer_rho = outer_radius * st;
+
+                vertices.extend([
+                    [inner_rho * cp, inner_rho * sp, inner_radius * ct],
+                    [outer_rho * cp, outer_rho * sp, outer_radius * ct],
+                ]);
+                normals.extend([normal, normal]);
+                uvs.extend([
+                    [(i as f32) / self.stacks as f32, 0.0],
+                    [(i as f32) / self.stacks as f32, vmin],
+                ]);
+            }
+            for i in 0..self.stacks as u32 {
+                indices.push(2 * i);
+                indices.push(2 * i + 2);
+                indices.push(2 * i + 1);
+                indices.push(2 * i + 2);
+                indices.push(2 * i + 3);
+                indices.push(2 * i + 1);
+            }
+            RawMesh { vertices, normals, uvs, indices }
+        };
+        raw.into()
+    }
+
+    fn build_shell(&self, kind: ShellKind) -> Mesh {
+        let (radius, sgn) = match kind {
+            ShellKind::Inner => (
+                self.sphere.inner_radius.meters(),
+                -1.0,
+            ),
+            ShellKind::Outer => (
+                self.sphere.outer_radius.meters(),
+                1.0,
+            ),
+        };
+        let phi_step = self.sphere.delta_phi as f32 / self.sectors as f32;
+        let theta_step = self.sphere.delta_theta as f32 / self.stacks as f32;
+
+        let n_vertices = (self.stacks + 1) * (self.sectors + 1);
+        let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
+        let mut indices: Vec<u32> = Vec::with_capacity(6 * self.stacks * self.sectors);
+
+        for i in 0..self.stacks + 1 {
+            let theta = self.sphere.start_theta as f32 + (i as f32) * theta_step;
+            let (st, ct) = theta.sin_cos();
+            let rho = radius * st;
+            let z = radius * ct;
+
+            for j in 0..self.sectors + 1 {
+                let phi = self.sphere.start_phi as f32 + (j as f32) * phi_step;
+                let (sp, cp) = phi.sin_cos();
+                let x = rho * cp;
+                let y = rho * sp;
+
+                vertices.push([x, y, z]);
+                normals.push([sgn * st * cp, sgn * st * sp, sgn * ct]);
+                uvs.push([(j as f32) / self.sectors as f32, (i as f32) / self.stacks as f32]);
+            }
+        }
+
+        // indices
+        //  k1--k1+1
+        //  |  / |
+        //  | /  |
+        //  k2--k2+1
+        for i in 0..self.stacks as u32 {
+            let mut k1 = i *(self.sectors as u32 + 1);
+            let mut k2 = k1 + self.sectors as u32 + 1;
+            for _j in 0..self.sectors as u32 {
+                match kind {
+                    ShellKind::Inner => {
+                        indices.push(k1);
+                        indices.push(k1 + 1);
+                        indices.push(k2);
+                        indices.push(k1 + 1);
+                        indices.push(k2 + 1);
+                        indices.push(k2);
+                    },
+                    ShellKind::Outer => {
+                        indices.push(k1);
+                        indices.push(k2);
+                        indices.push(k1 + 1);
+                        indices.push(k1 + 1);
+                        indices.push(k2);
+                        indices.push(k2 + 1);
+                    },
+                }
+                k1 += 1;
+                k2 += 1;
+            }
+        }
+
+        RawMesh { indices, vertices, normals, uvs }
+            .into()
+    }
+}
+
+impl MeshBuilder for UvSphereBuilder {
+    fn build(&self) -> Mesh {
+        let mut mesh = self.build_shell(ShellKind::Outer);
+        if self.sphere.inner_radius > 0.0 {
+            let inner_shell = self.build_shell(ShellKind::Inner);
+            mesh.merge(&inner_shell);
+        }
+        if self.sphere.delta_theta < std::f64::consts::PI - f32::EPSILON as f64 {
+            let (theta_min, theta_max) = {
+                let t0 = self.sphere.start_theta as f32;
+                let t1 = (self.sphere.start_theta + self.sphere.delta_theta) as f32;
+                if t0 <= t1 {
+                    (t0, t1)
+                } else {
+                    (t1, t0)
+                }
+            };
+            if theta_min > 0.0 {
+                let upper_cap = self.build_cap(theta_min, CapKind::Upper);
+                mesh.merge(&upper_cap);
+            }
+            if theta_max < std::f32::consts::PI {
+                let lower_cap = self.build_cap(theta_max, CapKind::Lower);
+                mesh.merge(&lower_cap);
+            }
+        }
+        if self.sphere.delta_phi < std::f64::consts::TAU - f32::EPSILON as f64 {
+            let (phi_min, phi_max) = {
+                let p0 = self.sphere.start_phi as f32;
+                let p1 = (self.sphere.start_phi + self.sphere.delta_phi) as f32;
+                if p0 <= p1 {
+                    (p0, p1)
+                } else {
+                    (p1, p0)
+                }
+            };
+            let left_side = self.build_side(phi_min, SideKind::Left);
+            mesh.merge(&left_side);
+            let right_side = self.build_side(phi_max, SideKind::Right);
+            mesh.merge(&right_side);
+        }
+        mesh
+    }
+}
+
+impl From<RawMesh> for Mesh {
+    fn from(value: RawMesh) -> Self {
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+            .with_inserted_indices(Indices::U32(value.indices))
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, value.vertices)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, value.normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, value.uvs)
     }
 }
