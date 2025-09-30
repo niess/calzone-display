@@ -46,15 +46,13 @@ impl Drone {
     pub fn spawn(
         mut commands: Commands,
         query: Query<&Volume, With<RootVolume>>,
-    ) {
+    ) -> Result<()> {
         let drone = Drone::new(&mut commands);
-        let root = query.single();
+        let root = query.single()?;
         commands
             .spawn(drone)
-            .insert(SpatialBundle {
-                transform: root.target(),
-                ..default()
-            })
+            .insert(root.target())
+            .insert(Visibility::default())
             .insert(RigidBody::KinematicVelocityBased)
             .insert(AdditionalMassProperties::Mass(1.0))
             .insert(Velocity::default())
@@ -62,18 +60,17 @@ impl Drone {
             .with_children(|parent| {
                 parent.spawn((
                     DroneCamera,
-                    Camera3dBundle {
-                        projection: PerspectiveProjection {
-                            fov: Drone::FOV_MAX,
-                            near: Drone::NEAR,
-                            ..default()
-                        }.into(),
+                    Camera3d::default(),
+                    Projection::Perspective(PerspectiveProjection {
+                        fov: Drone::FOV_MAX,
+                        near: Drone::NEAR,
                         ..default()
-                    },
+                    }),
                 ));
                 parent.spawn(SkyBundle::new(Drone::FOV_MAX));
                 parent.spawn(EventBundle::new(Drone::FOV_MAX));
             });
+        Ok(())
     }
 }
 
@@ -81,18 +78,18 @@ fn on_mouse_button(
     buttons: Res<ButtonInput<MouseButton>>,
     mut drone: Query<&mut Drone>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
-) {
+) -> Result<()> {
     if window.is_empty() {
-        return; // The window might have been closed.
+        return Ok(()); // The window might have been closed.
     }
-    let mut drone = drone.single_mut();
-    let mut window = window.single_mut();
+    let mut drone = drone.single_mut()?;
+    let mut window = window.single_mut()?;
 
     if buttons.just_pressed(MouseButton::Right) {
         if let Some(position) = window.cursor_position() {
             drone.cursor = Some(position);
-            window.cursor.grab_mode = CursorGrabMode::Locked;
-            window.cursor.visible = false;
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
         }
     }
 
@@ -101,19 +98,20 @@ fn on_mouse_button(
             window.set_cursor_position(Some(position));
         }
         drone.cursor = None;
-        window.cursor.grab_mode = CursorGrabMode::None;
-        window.cursor.visible = true;
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
     }
+    Ok(())
 }
 
 fn on_mouse_motion(
     mut motions: EventReader<MouseMotion>,
     mut query: Query<(&Drone, &mut Transform, &mut Velocity)>,
     mut camera: Query<&mut Projection, With<DroneCamera>>,
-) {
-    let (drone, mut transform, mut velocity) = query.single_mut();
+) -> Result<()> {
+    let (drone, mut transform, mut velocity) = query.single_mut()?;
     if drone.cursor.is_none() {
-        return
+        return Ok(())
     }
 
     // Compute the total motion.
@@ -127,11 +125,11 @@ fn on_mouse_motion(
         (x, y)
     };
     if (x == 0.0) && (y == 0.0) {
-        return
+        return Ok(())
     }
 
     let mut zoom = 1.0;
-    if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
+    if let Projection::Perspective(perspective) = camera.single_mut()?.into_inner() {
         zoom = Drone::FOV_MAX / perspective.fov;
     }
     let yaw = -0.003 * x / zoom;
@@ -148,6 +146,7 @@ fn on_mouse_motion(
     if let Some(r0i) = r0i {
         velocity.linvel = (transform.rotation * r0i) * velocity.linvel;
     }
+    Ok(())
 }
 
 fn on_mouse_wheel(
@@ -162,33 +161,37 @@ fn on_mouse_wheel(
         With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
     )>,
     drone: Query<&Drone>,
-    uis: Query<(&Node, &GlobalTransform), With<UiRoot>>,
+    uis: Query<(&ComputedNode, &GlobalTransform), With<UiRoot>>,
     window: Query<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
-) {
-    if window.is_empty() {
-        return
-    }
-    let Some(cursor) = window.single().cursor_position() else { return };
+) -> Result<()> {
+    let Ok(window) = window.single() else { return Ok(()) };
+    let Some(cursor) = window.cursor_position() else { return Ok(()) };
     let mut scroll = 0.0;
     for wheel in wheels.read() {
         scroll += wheel.y;
     }
     if scroll == 0.0 {
-        return
+        return Ok(())
     }
     for (node, transform) in uis.iter() {
-        let rect = node.logical_rect(transform);
+        let rect = Rect::from_center_size(
+            transform.translation().xy(),
+            node.size,
+        );
         if rect.contains(cursor) {
-            return
+            return Ok(())
         }
     }
 
-    if let Projection::Perspective(perspective) = camera.single_mut().into_inner() {
+    if let Projection::Perspective(perspective) = camera.single_mut().unwrap().into_inner() {
         perspective.fov = (perspective.fov * (-0.05 * scroll).exp())
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
-        update_zoom(drone.single(), perspective, event_camera, sky_camera, &mut commands);
+        update_zoom(
+            drone.single().unwrap(), perspective, event_camera, sky_camera, &mut commands
+        )?;
     }
+    Ok(())
 }
 
 fn update_zoom(
@@ -201,23 +204,24 @@ fn update_zoom(
         With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
     )>,
     commands: &mut Commands,
-) {
+) -> Result<()> {
     drone.meters.update_zoom(Drone::FOV_MAX / perspective.fov, commands);
 
-    if let Projection::Perspective(event_camera) = event_camera.single_mut().into_inner() {
+    if let Projection::Perspective(event_camera) = event_camera.single_mut()?.into_inner() {
         event_camera.fov = perspective.fov;
     }
-    if let Projection::Perspective(sky_camera) = sky_camera.single_mut().into_inner() {
+    if let Projection::Perspective(sky_camera) = sky_camera.single_mut()?.into_inner() {
         sky_camera.fov = perspective.fov;
     }
+    Ok(())
 }
 
 fn on_keyboard(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut Velocity, &mut Drone)>,
     mut commands: Commands,
-) {
-    let (transform, mut velocity, mut drone) = query.single_mut();
+) -> Result<()> {
+    let (transform, mut velocity, mut drone) = query.single_mut()?;
 
     let mut direction = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
@@ -248,6 +252,7 @@ fn on_keyboard(
     }
 
     velocity.linvel = drone.velocity * direction;
+    Ok(())
 }
 
 fn on_target(
@@ -263,10 +268,10 @@ fn on_target(
     sky_camera: Query<&mut Projection, (
         With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
     )>,
-) {
+) -> Result<()> {
     let mut reset_zoom = false;
     for event in events.read() {
-        let (_, mut transform, mut velocity) = drone.single_mut();
+        let (_, mut transform, mut velocity) = drone.single_mut()?;
         *transform = event.0;
         let magnitude = velocity.linvel.length();
         if magnitude != 0.0 {
@@ -276,12 +281,13 @@ fn on_target(
     }
 
     if reset_zoom {
-        if let Projection::Perspective(perspective) = drone_camera.single_mut().into_inner() {
-            let (drone, ..) = drone.single_mut();
+        if let Projection::Perspective(perspective) = drone_camera.single_mut()?.into_inner() {
+            let (drone, ..) = drone.single_mut()?;
             perspective.fov = Drone::FOV_MAX;
-            update_zoom(drone, perspective, event_camera, sky_camera, &mut commands);
+            update_zoom(drone, perspective, event_camera, sky_camera, &mut commands)?;
         }
     }
+    Ok(())
 }
 
 fn on_transform(
@@ -291,7 +297,7 @@ fn on_transform(
     if query.is_empty() {
         return
     }
-    let (drone, transform) = query.single();
+    let (drone, transform) = query.single().unwrap();
     drone.meters.update_transform(transform, &mut commands);
 }
 

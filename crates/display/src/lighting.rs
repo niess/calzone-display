@@ -39,16 +39,15 @@ fn setup_light(
     mut commands: Commands,
     mut sun: ResMut<Sun>,
 ) {
-    sun.entity = commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    sun.entity = commands.spawn((
+        DirectionalLight {
             color: LIGHT_YELLOW.into(),
             illuminance: sun.illuminance,
             shadows_enabled: true,
             ..default()
         },
-        transform: sun.compute_transform(),
-        ..default()
-    })
+        sun.compute_transform(),
+    ))
     .insert(SunLight)
     .insert(Removable)
     .observe(Shadows::modify_sun)
@@ -66,7 +65,7 @@ fn update_light(
     if transform.is_empty() || !sun.is_changed() {
         return
     }
-    *transform.single_mut() = sun.compute_transform();
+    *transform.single_mut().unwrap() = sun.compute_transform();
 }
 
 impl Shadows {
@@ -83,7 +82,7 @@ impl Shadows {
         mut lights: Query<&mut DirectionalLight>,
     ) {
         let mut light = lights
-            .get_mut(trigger.entity())
+            .get_mut(trigger.target())
             .unwrap();
         light.shadows_enabled = trigger.event().0;
     }

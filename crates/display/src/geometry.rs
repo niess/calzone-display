@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::ecs::system::EntityCommands;
-use bevy::pbr::wireframe::{WireframeMaterial, WireframePlugin};
-use bevy::render::primitives::Aabb;
+use bevy::pbr::wireframe::{WireframeColor, WireframePlugin};
+use bevy::render::{mesh::MeshAabb, primitives::Aabb};
 use crate::app::{AppState, Removable};
 use convert_case::{Case, Casing};
 use std::collections::HashMap;
@@ -86,7 +86,7 @@ impl GeometryPlugin{
 impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugins(WireframePlugin)
+            .add_plugins(WireframePlugin::default())
             .add_systems(OnEnter(AppState::Display), setup_geometry.in_set(GeometrySet));
     }
 }
@@ -94,8 +94,7 @@ impl Plugin for GeometryPlugin {
 fn setup_geometry(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut wireframe_materials: ResMut<Assets<WireframeMaterial>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let config = std::mem::take(GEOMETRY.lock().unwrap().deref_mut());
     match config {
@@ -106,8 +105,7 @@ fn setup_geometry(
                 materials_info: &HashMap<String, data::MaterialInfo>,
                 transform: GlobalTransform,
                 meshes: &mut Assets<Mesh>,
-                standard_materials: &mut Assets<StandardMaterial>,
-                wireframe_materials: &mut Assets<WireframeMaterial>,
+                materials: &mut Assets<StandardMaterial>,
             ) {
                 parent.with_children(|parent| {
                     for mut volume in volumes {
@@ -118,8 +116,7 @@ fn setup_geometry(
                             materials_info,
                             &mut transform,
                             meshes,
-                            standard_materials,
-                            wireframe_materials,
+                            materials,
                         )
                         .spawn_child(parent);
                         spawn_them_all(
@@ -128,8 +125,7 @@ fn setup_geometry(
                             materials_info,
                             transform,
                             meshes,
-                            standard_materials,
-                            wireframe_materials,
+                            materials,
                         );
                     }
                 });
@@ -143,8 +139,7 @@ fn setup_geometry(
                 &geometry.materials,
                 &mut transform,
                 &mut meshes,
-                &mut standard_materials,
-                &mut wireframe_materials
+                &mut materials,
             )
             .spawn_root(&mut commands);
             spawn_them_all(
@@ -153,8 +148,7 @@ fn setup_geometry(
                 &geometry.materials,
                 transform,
                 &mut meshes,
-                &mut standard_materials,
-                &mut wireframe_materials,
+                &mut materials,
             );
         },
         Configuration::Stl(path) => {
@@ -168,16 +162,15 @@ fn setup_geometry(
                 .unwrap()
                 .to_string()
                 .to_case(Case::Pascal);
+            let color = SADDLE_BROWN.into();
             commands.spawn((
-                PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: standard_materials.add(StandardMaterial {
-                        base_color: SADDLE_BROWN.into(),
-                        cull_mode: None,
-                        ..default()
-                    }),
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: color,
+                    cull_mode: None,
                     ..default()
-                },
+                })),
+                WireframeColor { color },
                 RootVolume,
                 Removable,
                 Plain,

@@ -58,13 +58,10 @@ impl UiEvent {
             {
                 commands
                     .spawn(
-                        NodeBundle {
-                            style: Style {
-                                display: Display::Flex,
-                                flex_direction: FlexDirection::Column,
-                                padding: UiRect::all(Val::Px(4.0)),
-                                ..default()
-                            },
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            padding: UiRect::all(Val::Px(4.0)),
                             ..default()
                         }
                     )
@@ -146,16 +143,13 @@ impl UiEvent {
             let values = spawn_column(commands, &values);
 
             let mut content = commands.spawn(
-                NodeBundle {
-                    style: Style {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        ..default()
-                    },
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
                     ..default()
                 },
             );
-            content.push_children(&[labels, values]);
+            content.add_children(&[labels, values]);
             let content = content.id();
 
             let title = data.track.label();
@@ -167,11 +161,8 @@ impl UiEvent {
             window.add_child(content);
             let window = window.id();
 
-            let mut node = commands.spawn(NodeBundle {
-                style: Style {
-                    padding: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
+            let mut node = commands.spawn(Node {
+                padding: UiRect::all(Val::Px(2.0)),
                 ..default()
             });
             node.add_child(window);
@@ -180,19 +171,16 @@ impl UiEvent {
 
         let mut node = commands.spawn((
             UiEvent,
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(cursor.y + 12.0),
-                    left: Val::Px(cursor.x + 12.0),
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    ..default()
-                },
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(cursor.y + 12.0),
+                left: Val::Px(cursor.x + 12.0),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
         ));
-        node.push_children(&windows);
+        node.add_children(&windows);
     }
 
     pub fn spawn_status(
@@ -207,12 +195,9 @@ impl UiEvent {
 
         let content = commands.spawn((
             EventContent,
-            NodeBundle {
-                style: Style {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    ..default()
-                },
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
         )).id();
@@ -233,11 +218,8 @@ impl UiEvent {
         window.add_child(scroll);
         let window = window.id();
 
-        let mut capsule = commands.spawn(NodeBundle {
-            style: Style {
-                padding: UiRect::left(Val::Px(4.0)),
-                ..default()
-            },
+        let mut capsule = commands.spawn(Node {
+            padding: UiRect::left(Val::Px(4.0)),
             ..default()
         });
         capsule.insert(Event);
@@ -245,7 +227,7 @@ impl UiEvent {
         let capsule = capsule.id();
 
         commands
-            .entity(primary_menu.single())
+            .entity(primary_menu.single().unwrap())
             .add_child(capsule);
     }
 }
@@ -255,7 +237,7 @@ struct EventContent;
 
 fn clear_content(content: Entity, commands: &mut Commands) {
     let mut content = commands.entity(content);
-    content.despawn_descendants();
+    content.despawn_related::<Children>();
 }
 
 fn update_content(
@@ -327,29 +309,29 @@ fn on_button(
     interactions: Query<(&Interaction, &TrackButton, &Children), Changed<Interaction>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     events: Res<Events>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextColor>,
     mut ev_target: EventWriter<TargetEvent>,
     mut ev_update: EventWriter<UpdateEvent>,
 ) {
     for (interaction, button, children) in interactions.iter() {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+        let mut color = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 if keyboard_input.pressed(KeyCode::ShiftLeft) {
                     let event = &events.data.0[&events.index];
                     let track = &event.tracks[&button.0];
-                    ev_target.send(TargetEvent(track.target()));
+                    ev_target.write(TargetEvent(track.target()));
                 } else {
                     let recursive = keyboard_input.pressed(KeyCode::ControlLeft);
-                    ev_update.send(UpdateEvent(button.0, recursive));
+                    ev_update.write(UpdateEvent(button.0, recursive));
                 }
-                text.sections[0].style.color = UiText::PRESSED.into();
+                color.0 = UiText::PRESSED.into();
             }
             Interaction::Hovered => {
-                text.sections[0].style.color = UiText::HOVERED.into();
+                color.0 = UiText::HOVERED.into();
             }
             Interaction::None => {
-                text.sections[0].style.color = UiText::NORMAL.into();
+                color.0 = UiText::NORMAL.into();
             }
         }
     }
@@ -386,7 +368,7 @@ fn on_update(
             recurse(expansions.0[tid], *tid, event, &mut expansions);
         }
 
-        let content = content.single();
+        let content = content.single().unwrap();
         clear_content(content, &mut commands);
         update_content(content, &events, &expansions, &mut commands);
     }

@@ -8,7 +8,7 @@ crate-type = ["rlib"]
 name = "display"
 
 [dependencies]
-bevy = { version = "0.14", default-features = false, features = [
+bevy = { version = "0.16", default-features = false, features = [
     "bevy_asset",
     "bevy_pbr",
     "bevy_core_pipeline",
@@ -23,10 +23,10 @@ bevy = { version = "0.14", default-features = false, features = [
     "tonemapping_luts",
     "x11",
 ]}
-bevy_atmosphere = { version = "0.10", default-features = false, features = ["dithering", "procedural", "nishita"] }
-bevy_polyline = "0.10"
-bevy_rapier3d = "0.27"
-bevy_simple_text_input = "0.9"
+bevy_atmosphere = { version = "0.13", default-features = false, features = ["dithering", "procedural", "nishita"] }
+bevy_polyline = "0.12"
+bevy_rapier3d = "0.31"
+bevy_simple_text_input = "0.11"
 chrono = "0.4"
 convert_case = "0.6"
 data = { path = "../data" }

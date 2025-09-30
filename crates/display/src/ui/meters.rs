@@ -17,13 +17,10 @@ impl Meters {
     pub fn new(commands: &mut Commands) -> Self {
         fn spawn_column<'a>(commands: &'a mut Commands) -> EntityCommands<'a> {
             commands.spawn(
-                NodeBundle {
-                    style: Style {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(4.0)),
-                        ..default()
-                    },
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(4.0)),
                     ..default()
                 }
             )
@@ -38,7 +35,7 @@ impl Meters {
         let zoom = commands.spawn(super::UiText::new_bundle("zoom")).id();
 
         let mut labels = spawn_column(commands);
-        labels.push_children(&[x, y, z, azimuth, elevation, speed, zoom]);
+        labels.add_children(&[x, y, z, azimuth, elevation, speed, zoom]);
         let labels = labels.id();
 
         let x = Meter::new(commands, "m");
@@ -50,21 +47,18 @@ impl Meters {
         let zoom = Meter::new(commands, "");
 
         let mut values = spawn_column(commands);
-        values.push_children(&[ x.entity, y.entity, z.entity, azimuth.entity, elevation.entity,
+        values.add_children(&[ x.entity, y.entity, z.entity, azimuth.entity, elevation.entity,
                                 speed.entity, zoom.entity ]);
         let values = values.id();
 
         let mut content = commands.spawn(
-            NodeBundle {
-                style: Style {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    ..default()
-                },
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
                 ..default()
             },
         );
-        content.push_children(&[labels, values]);
+        content.add_children(&[labels, values]);
         let content = content.id();
 
         let mut window = super::UiWindow::new("Drone", super::WindowLocation::TopRight, commands);
@@ -134,7 +128,7 @@ impl MeterEvent {
     ) {
         let value = trigger.event().value;
         let unit = trigger.event().unit;
-        let mut text = texts.get_mut(trigger.entity()).unwrap();
-        text.sections[0].value = format!("{:8.2}  {:^3}", value, unit);
+        let mut text = texts.get_mut(trigger.target()).unwrap();
+        text.0 = format!("{:8.2}  {:^3}", value, unit);
     }
 }

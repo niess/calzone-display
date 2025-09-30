@@ -88,10 +88,7 @@ fn draw_event(
     mut polylines: ResMut<Assets<Polyline>>,
     mut polymats: ResMut<Assets<PolylineMaterial>>,
 ) {
-    if primary_window.is_empty() {
-        return
-    }
-    let primary_window = primary_window.single();
+    let Ok(primary_window) = primary_window.single() else { return };
 
     if events.is_changed() && (events.index < events.data.0.len()) {
         if let Some(event) = events.data.0.get(&events.index) {
@@ -99,14 +96,15 @@ fn draw_event(
             for entity in current_event.iter() {
                 commands
                     .entity(entity)
-                    .despawn_recursive();
+                    .despawn();
             }
 
             // Spawn the current event.
             commands
                 .spawn((
                     Event,
-                    SpatialBundle::default(),
+                    Transform::default(),
+                    Visibility::default(),
                     Removable,
                 ))
                 .with_children(|parent| {
@@ -141,8 +139,8 @@ fn draw_event(
                             .spawn((
                                 Track::from(track),
                                 PolylineBundle {
-                                    polyline: polylines.add(polyline),
-                                    material: polymats.add(material),
+                                    polyline: PolylineHandle(polylines.add(polyline)),
+                                    material: PolylineMaterialHandle(polymats.add(material)),
                                     ..default()
                                 },
                                 RenderLayers::layer(EVENT_LAYER),
@@ -153,14 +151,9 @@ fn draw_event(
                                     parent.spawn((
                                         Vertex::from(vertex),
                                         VertexSize(vertex_size),
-                                        PbrBundle {
-                                            material: vertex_material.clone(),
-                                            mesh: vertex_mesh.clone(),
-                                            transform: Transform::from_translation(
-                                                *vertex.position.as_vec3()
-                                            ),
-                                            ..default()
-                                        },
+                                        MeshMaterial3d(vertex_material.clone()),
+                                        Mesh3d(vertex_mesh.clone()),
+                                        Transform::from_translation(*vertex.position.as_vec3()),
                                         RenderLayers::layer(EVENT_LAYER),
                                     ));
                                 }
@@ -221,24 +214,22 @@ impl<'a> From<&'a data::Vertex> for Vertex {
 pub(crate) struct EventCamera;
 
 #[derive(Bundle)]
-pub(crate) struct EventBundle (EventCamera, Camera3dBundle, RenderLayers);
+pub(crate) struct EventBundle (EventCamera, Camera3d, Camera, Projection, RenderLayers);
 
 impl EventBundle {
     pub fn new(fov: f32) -> Self {
         Self (
             EventCamera,
-            Camera3dBundle {
-                camera: Camera {
-                    order: 1,
-                    ..default()
-                },
-                projection: PerspectiveProjection {
-                    fov,
-                    near: Drone::NEAR,
-                    ..default()
-                }.into(),
+            Camera3d::default(),
+            Camera {
+                order: 1,
                 ..default()
             },
+            Projection::Perspective(PerspectiveProjection {
+                fov,
+                near: Drone::NEAR,
+                ..default()
+            }),
             RenderLayers::layer(EVENT_LAYER),
         )
     }

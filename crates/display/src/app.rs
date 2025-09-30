@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::log::{Level, LogPlugin};
 use bevy::window::{ExitCondition::DontExit, PrimaryWindow};
-use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
+use bevy::winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin};
 use bevy_rapier3d::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use super::display::DisplayPlugin;
@@ -87,8 +87,10 @@ pub fn run() -> u8 {
     }
 }
 
-fn setup_physics(mut config: ResMut<RapierConfiguration>) {
-    config.gravity = 9.81 * Vect::NEG_Z;
+fn setup_physics(mut config: Query<&mut RapierConfiguration>) -> Result<()> {
+    config.single_mut()?
+        .gravity = 9.81 * Vect::NEG_Z;
+    Ok(())
 }
 
 fn iddle_system(
@@ -96,7 +98,7 @@ fn iddle_system(
     window: Query<&Window>,
     mut next_state: ResMut<NextState<AppState>>,
     mut exit: EventWriter<AppExit>,
-    event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
+    event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
 ) {
     if GeometryPlugin::is_data() {
         if window.is_empty() {
@@ -113,7 +115,7 @@ fn iddle_system(
         next_state.set(AppState::Display);
     } else {
         if EXIT.load(Ordering::Relaxed) {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
     }
 }
@@ -123,7 +125,7 @@ fn clear_all(
     mut commands: Commands,
 ) {
     for entity in entities.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 

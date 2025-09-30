@@ -120,7 +120,7 @@ impl IntoMesh for TubsInfo  {
                 );
                 Extrusion::new(annulus, self.length.meters())
                     .mesh()
-                    .resolution(RESOLUTION as usize)
+                    .resolution(RESOLUTION)
                     .build()
             } else {
                 let sector = AnnulusSector {
@@ -562,7 +562,7 @@ impl MeshBuilder for UvSphereBuilder {
         let mut mesh = self.build_shell(ShellKind::Outer);
         if self.sphere.inner_radius > 0.0 {
             let inner_shell = self.build_shell(ShellKind::Inner);
-            mesh.merge(&inner_shell);
+            mesh.merge(&inner_shell).unwrap();
         }
         if self.sphere.delta_theta < std::f64::consts::PI - f32::EPSILON as f64 {
             let (theta_min, theta_max) = {
@@ -576,11 +576,11 @@ impl MeshBuilder for UvSphereBuilder {
             };
             if theta_min > 0.0 {
                 let upper_cap = self.build_cap(theta_min, CapKind::Upper);
-                mesh.merge(&upper_cap);
+                mesh.merge(&upper_cap).unwrap();
             }
             if theta_max < std::f32::consts::PI {
                 let lower_cap = self.build_cap(theta_max, CapKind::Lower);
-                mesh.merge(&lower_cap);
+                mesh.merge(&lower_cap).unwrap();
             }
         }
         if self.sphere.delta_phi < std::f64::consts::TAU - f32::EPSILON as f64 {
@@ -594,9 +594,9 @@ impl MeshBuilder for UvSphereBuilder {
                 }
             };
             let left_side = self.build_side(phi_min, SideKind::Left);
-            mesh.merge(&left_side);
+            mesh.merge(&left_side).unwrap();
             let right_side = self.build_side(phi_max, SideKind::Right);
-            mesh.merge(&right_side);
+            mesh.merge(&right_side).unwrap();
         }
         mesh
     }

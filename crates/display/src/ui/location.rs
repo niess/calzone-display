@@ -59,31 +59,25 @@ fn setup_panel(
     let columns = [labels, values, units];
     let columns = columns.map(|column| {
         let mut entity = commands.spawn(
-            NodeBundle {
-                style: Style {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(Val::Px(4.0)),
-                    ..default()
-                },
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(4.0)),
                 ..default()
             }
         );
-        entity.push_children(&column);
+        entity.add_children(&column);
         entity.id()
     });
 
     let mut content = commands.spawn(
-        NodeBundle {
-            style: Style {
-                display: Display::Flex,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
             ..default()
         },
     );
-    content.push_children(&columns);
+    content.add_children(&columns);
     let content = content.id();
 
     let mut panel = UiWindow::new("Location", super::WindowLocation::BottomRight, &mut commands);

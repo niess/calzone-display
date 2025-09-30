@@ -7,6 +7,10 @@ use std::{sync::Mutex, thread};
 static HANDLE: Mutex<Option<thread::JoinHandle<u8>>> = Mutex::new(None);
 
 pub fn spawn(module: &Bound<PyModule>) -> PyResult<()> {
+    let stopper = wrap_pyfunction!(stop, module)?;
+    module.py().import_bound("atexit")?
+      .call_method1("register", (stopper,))?;
+
     #[cfg(feature = "ipc")]
     crate::ipc::spawn_agent(module.py())?;
 
@@ -18,10 +22,6 @@ pub fn spawn(module: &Bound<PyModule>) -> PyResult<()> {
             .unwrap()
             .replace(handle);
     }
-
-    let stopper = wrap_pyfunction!(stop, module)?;
-    module.py().import_bound("atexit")?
-      .call_method1("register", (stopper,))?;
     Ok(())
 }
 
@@ -40,7 +40,7 @@ fn stop(_py: Python<'_>) -> PyResult<()> {
         .unwrap()
         .take();
     if let Some(handle) = handle {
-        handle.join().unwrap();
+        let _ignored = handle.join();
     }
     Ok(())
 }

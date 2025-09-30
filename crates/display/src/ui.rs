@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
-use bevy_simple_text_input::{TextInputBundle, TextInputCursorPos, TextInputInactive,
+use bevy_simple_text_input::{TextInput, TextInputCursorPos, TextInputInactive,
     TextInputPlugin, TextInputSettings, TextInputSubmitEvent, TextInputSystem, TextInputValue};
 use bevy::window::PrimaryWindow;
 use crate::app::{AppState, Removable};
@@ -63,13 +63,10 @@ impl PrimaryMenu {
             PrimaryMenu,
             UiRoot,
             Removable,
-            NodeBundle {
-                style: Style {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    top, left, bottom, right,
-                    ..default()
-                },
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                top, left, bottom, right,
                 ..default()
             },
         ));
@@ -115,31 +112,26 @@ impl UiWindow {
         location: WindowLocation,
         commands: &'a mut Commands
     ) -> EntityCommands<'a> {
-        let title = commands.spawn(
-            TextBundle::from_section(
-                title,
-                TextStyle {
-                    font_size: 18.0,
-                    color: NORD[6].into(),
-                    ..default()
-                }
-            )
-        ).id();
+        let title = commands.spawn((
+            Text(title.to_owned()),
+            TextFont {
+                font_size: 18.0,
+                ..default()
+            },
+            TextColor(NORD[6].into()),
+        )).id();
 
         let mut capsule = commands.spawn((
-                UiWindow,
-                NodeBundle {
-                    style: Style {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        justify_items: JustifyItems::Center,
-                        padding: UiRect::new(Val::ZERO, Val::ZERO, Val::Px(3.0), Val::Px(5.0)),
-                        ..default()
-                    },
-                    background_color: NORD[2].into(),
-                    ..default()
-                },
+            UiWindow,
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_items: JustifyItems::Center,
+                padding: UiRect::new(Val::ZERO, Val::ZERO, Val::Px(3.0), Val::Px(5.0)),
+                ..default()
+            },
+            BackgroundColor(NORD[2].into()),
         ));
         capsule.add_child(title);
         let capsule = capsule.id();
@@ -150,8 +142,8 @@ impl UiWindow {
             _ => PositionType::Absolute,
         };
 
-        let mut window = commands.spawn(NodeBundle {
-            style: Style {
+        let mut window = commands.spawn((
+            Node {
                 position_type,
                 top,
                 left,
@@ -163,11 +155,10 @@ impl UiWindow {
                 border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
-            background_color: NORD[1].into(),
-            border_color: NORD[2].into(),
-            border_radius: BorderRadius::all(Val::Px(4.0)),
-            ..default()
-        });
+            BackgroundColor(NORD[1].into()),
+            BorderColor(NORD[2].into()),
+            BorderRadius::all(Val::Px(4.0)),
+        ));
         window
             .insert(Removable)
             .add_child(capsule);
@@ -190,64 +181,64 @@ impl UiText {
         Self::FONT_HEIGHT * Self::FONT_ASPECT_RATIO
     }
 
-    fn new_bundle(message: &str) -> TextBundle {
-        TextBundle::from_section(
-            message,
-            TextStyle {
-                font_size: Self::FONT_HEIGHT,
-                color: Self::NORMAL.into(),
-                ..default()
-            }
-        )
-        .with_style(Style {
-            margin: UiRect::horizontal(Val::Px(6.0)),
-            ..default()
-        })
-    }
-
-    fn new_input(message: &str, width: f32) -> (NodeBundle, TextInputBundle) {
+    fn new_bundle(message: &str) -> impl Bundle {
         (
-            NodeBundle {
-                style: Style {
-                    width: Val::Px(width),
-                    ..default()
-                },
-                border_color: NORD[2].into(),
+            Text(message.to_owned()),
+            TextFont {
+                font_size: Self::FONT_HEIGHT,
                 ..default()
             },
-            TextInputBundle::default()
-                .with_inactive(true)
-                .with_value(message)
-                .with_settings(TextInputSettings {
-                    retain_on_submit: true,
-                    ..default()
-                })
-                .with_text_style(TextStyle {
-                    font_size: Self::FONT_HEIGHT,
-                    color: Self::NORMAL.into(),
-                    ..default()
-                }),
+            TextColor(Self::NORMAL.into()),
+            Node {
+                margin: UiRect::horizontal(Val::Px(6.0)),
+                ..default()
+            },
+        )
+    }
+
+    fn new_input(message: &str, width: f32) -> impl Bundle {
+        (
+            BorderColor(NORD[2].into()),
+            Node {
+                width: Val::Px(width),
+                ..default()
+            },
+            TextInput,
+            TextInputInactive(true),
+            TextInputValue(message.to_owned()),
+            TextInputSettings {
+                retain_on_submit: true,
+                ..default()
+            },
+            TextFont {
+                font_size: Self::FONT_HEIGHT,
+                ..default()
+            },
+            TextColor(Self::NORMAL.into()),
         )
     }
 
     fn on_mouse_button(
         buttons: Res<ButtonInput<MouseButton>>,
         mut inputs: Query<(
-            Entity, &Node, &GlobalTransform, &mut TextInputInactive, &TextInputValue,
+            Entity, &ComputedNode, &GlobalTransform, &mut TextInputInactive, &TextInputValue,
             &mut TextInputCursorPos,
         )>,
         mut window: Query<&mut Window, With<PrimaryWindow>>,
         mut ev_input: EventWriter<TextInputSubmitEvent>,
-    ) {
+    ) -> Result<()> {
         if window.is_empty() {
-            return; // The window might have been closed.
+            return Ok(()); // The window might have been closed.
         }
-        let window = window.single_mut();
+        let window = window.single_mut()?;
 
         if buttons.just_pressed(MouseButton::Left) {
             if let Some(cursor) = window.cursor_position() {
                 for (entity, node, transform, mut inactive, value, mut pos) in inputs.iter_mut() {
-                    let rect = node.logical_rect(transform);
+                    let rect = Rect::from_center_size(
+                        transform.translation().xy(),
+                        node.size,
+                    );
                     if rect.contains(cursor) {
                         if inactive.0 {
                             inactive.0 = false;
@@ -255,11 +246,13 @@ impl UiText {
                         pos.0 = ((cursor.x - rect.min.x) / Self::font_width() + 0.5) as usize;
                     } else if !inactive.0 {
                         let value = value.0.clone();
-                        ev_input.send(TextInputSubmitEvent { entity, value });
+                        ev_input.write(TextInputSubmitEvent { entity, value });
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     fn on_inactive_changed(
@@ -285,11 +278,9 @@ impl UiText {
     {
         commands.spawn((
             component,
-            ButtonBundle {
-                style: Style {
-                    margin: UiRect::vertical(Val::Px(2.0)),
-                    ..default()
-                },
+            Button,
+            Node {
+                margin: UiRect::vertical(Val::Px(2.0)),
                 ..default()
             },
         ))

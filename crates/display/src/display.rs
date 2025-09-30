@@ -105,7 +105,7 @@ fn on_display_mode(
     mode: Res<DisplayMode>,
     blend_settings: Res<BlendSettings>,
     premultiplied_settings: Res<PremultipliedSettings>,
-    handles: Query<&Handle<StandardMaterial>, With<Volume>>,
+    handles: Query<&MeshMaterial3d<StandardMaterial>, With<Volume>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
     sun: Res<Sun>,

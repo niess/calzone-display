@@ -13,7 +13,7 @@ use crate::ui::{TextInputSet, TextInputState};
 pub struct SkyPlugin;
 
 #[derive(Bundle)]
-pub struct SkyBundle (SkyCamera, AtmosphereCamera, Camera3dBundle, RenderLayers);
+pub struct SkyBundle (SkyCamera, AtmosphereCamera, Camera3d, Camera, Projection, RenderLayers);
 
 #[derive(Component)]
 pub struct SkyCamera;
@@ -59,8 +59,8 @@ fn update_sky(
 fn on_keyboard(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut visibility: Query<&mut Visibility, With<SkyCamera>>,
-) {
-    let mut visibility = visibility.single_mut();
+) -> Result<()> {
+    let mut visibility = visibility.single_mut()?;
 
     if keyboard_input.just_pressed(KeyCode::KeyP) {
         *visibility = match *visibility {
@@ -69,6 +69,7 @@ fn on_keyboard(
             _ => unreachable!(),
         }
     }
+    Ok(())
 }
 
 const SKY_LAYER: usize = 1;
@@ -79,27 +80,22 @@ fn add_skybox<'a>(
     camera: Query<Entity, With<SkyCamera>>,
     mut meshes: ResMut<Assets<Mesh>>,
     material: Res<skybox::AtmosphereSkyBoxMaterial>,
-) {
+) -> Result<()> {
     commands
-        .entity(camera.single())
-        .insert(VisibilityBundle {
-            visibility: Visibility::Visible,
-            ..default()
-        })
+        .entity(camera.single()?)
+        .insert(Visibility::Visible)
         .with_children(|parent| {
             parent
                 .spawn((
-                    MaterialMeshBundle {
-                        mesh: meshes.add(skybox::mesh(SKY_FAR)),
-                        material: material.0.clone(),
-                        ..default()
-                    },
+                    Mesh3d(meshes.add(skybox::mesh(SKY_FAR))),
+                    MeshMaterial3d(material.0.clone()),
                     AtmosphereSkyBox,
                     NotShadowCaster,
                     NotShadowReceiver,
                     RenderLayers::layer(SKY_LAYER),
                 ));
         });
+    Ok(())
 }
 
 impl SkyBundle {
@@ -109,18 +105,16 @@ impl SkyBundle {
             AtmosphereCamera {
                 render_layers: Some(RenderLayers::layer(SKY_LAYER))
             },
-            Camera3dBundle {
-                camera: Camera {
-                    order: -1,
-                    ..default()
-                },
-                projection: PerspectiveProjection {
+            Camera3d::default(),
+            Camera {
+                order: -1,
+                ..default()
+            },
+            Projection::Perspective(PerspectiveProjection {
                     far: SKY_FAR,
                     fov,
                     ..default()
-                }.into(),
-                ..default()
-            },
+            }),
             RenderLayers::layer(SKY_LAYER),
         )
     }
