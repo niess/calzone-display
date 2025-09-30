@@ -353,9 +353,18 @@ impl UvSphereBuilder {
                 uvs.push([(j as f32) / self.sectors as f32, 0.0]);
             }
             for j in 0..self.sectors as u32 {
-                indices.push(0);
-                indices.push(j + 1);
-                indices.push(j + 2);
+                match kind {
+                    CapKind::Lower => {
+                        indices.push(0);
+                        indices.push(j + 1);
+                        indices.push(j + 2);
+                    },
+                    CapKind::Upper => {
+                        indices.push(0);
+                        indices.push(j + 2);
+                        indices.push(j + 1);
+                    },
+                }
             }
             RawMesh { vertices, normals, uvs, indices }
         } else {
@@ -392,12 +401,24 @@ impl UvSphereBuilder {
                 ]);
             }
             for j in 0..self.sectors as u32 {
-                indices.push(2 * j);
-                indices.push(2 * j + 2);
-                indices.push(2 * j + 1);
-                indices.push(2 * j + 2);
-                indices.push(2 * j + 3);
-                indices.push(2 * j + 1);
+                match kind {
+                    CapKind::Lower => {
+                        indices.push(2 * j);
+                        indices.push(2 * j + 2);
+                        indices.push(2 * j + 1);
+                        indices.push(2 * j + 2);
+                        indices.push(2 * j + 3);
+                        indices.push(2 * j + 1);
+                    },
+                    CapKind::Upper => {
+                        indices.push(2 * j);
+                        indices.push(2 * j + 1);
+                        indices.push(2 * j + 2);
+                        indices.push(2 * j + 2);
+                        indices.push(2 * j + 1);
+                        indices.push(2 * j + 3);
+                    },
+                }
             }
             RawMesh { vertices, normals, uvs, indices }
         };
@@ -437,9 +458,18 @@ impl UvSphereBuilder {
                 uvs.push([(i as f32) / self.stacks as f32, 0.0]);
             }
             for i in 0..self.stacks as u32 {
-                indices.push(0);
-                indices.push(i + 1);
-                indices.push(i + 2);
+                match kind {
+                    SideKind::Left => {
+                        indices.push(0);
+                        indices.push(i + 1);
+                        indices.push(i + 2);
+                    },
+                    SideKind::Right => {
+                        indices.push(0);
+                        indices.push(i + 2);
+                        indices.push(i + 1);
+                    },
+                }
             }
             RawMesh { vertices, normals, uvs, indices }
         } else {
@@ -470,12 +500,24 @@ impl UvSphereBuilder {
                 ]);
             }
             for i in 0..self.stacks as u32 {
-                indices.push(2 * i);
-                indices.push(2 * i + 2);
-                indices.push(2 * i + 1);
-                indices.push(2 * i + 2);
-                indices.push(2 * i + 3);
-                indices.push(2 * i + 1);
+                match kind {
+                    SideKind::Left => {
+                        indices.push(2 * i);
+                        indices.push(2 * i + 2);
+                        indices.push(2 * i + 1);
+                        indices.push(2 * i + 2);
+                        indices.push(2 * i + 3);
+                        indices.push(2 * i + 1);
+                    },
+                    SideKind::Right => {
+                        indices.push(2 * i);
+                        indices.push(2 * i + 1);
+                        indices.push(2 * i + 2);
+                        indices.push(2 * i + 2);
+                        indices.push(2 * i + 1);
+                        indices.push(2 * i + 3);
+                    },
+                }
             }
             RawMesh { vertices, normals, uvs, indices }
         };
