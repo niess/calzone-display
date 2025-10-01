@@ -51,8 +51,31 @@ impl IntoMesh for OrbInfo {
 
 impl IntoMesh for SphereInfo {
     fn into_mesh(self) -> Mesh {
-        UvSphereBuilder::new(self)
-            .build()
+        if
+            (self.delta_phi < std::f64::consts::TAU - f32::EPSILON as f64) ||
+            (self.delta_theta < std::f64::consts::PI - f32::EPSILON as f64) {
+            UvSphereBuilder::new(self)
+                .build()
+        } else {
+            let mut mesh = Sphere::new(self.outer_radius.meters())
+                .mesh()
+                .ico(7)
+                .unwrap_or_else(|err| panic!("{}", err));
+            let mut inner = Sphere::new(self.inner_radius.meters())
+                .mesh()
+                .ico(7)
+                .unwrap_or_else(|err| panic!("{}", err))
+                .with_inverted_winding()
+                .unwrap_or_else(|err| panic!("{}", err));
+            let VertexAttributeValues::Float32x3(ref mut normals) =
+                inner.attribute_mut(Mesh::ATTRIBUTE_NORMAL).unwrap() else { unreachable!() };
+            for n in normals.iter_mut() {
+                *n = [-n[0], -n[1], -n[2]];
+            }
+            mesh.merge(&inner)
+                .unwrap_or_else(|err| panic!("{}", err));
+            mesh
+        }
     }
 }
 
