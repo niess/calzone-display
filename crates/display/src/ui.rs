@@ -12,6 +12,7 @@ mod location;
 mod meters;
 mod nord;
 mod scroll;
+mod stats;
 
 pub use event::UiEvent;
 pub use meters::Meters;
@@ -37,6 +38,7 @@ impl Plugin for UiPlugin {
         geometry::build(app);
         location::build(app);
         scroll::build(app);
+        stats::build(app);
     }
 }
 
