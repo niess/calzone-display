@@ -271,7 +271,7 @@ impl Extrudable for AnnulusSectorBuilder {
         let (s, c) = self.sector.half_angle.sin_cos();
         vec![
             PerimeterSegment::Flat {
-                indices: vec![1, 0],
+                indices: vec![0, 1],
             },
             PerimeterSegment::Smooth {
                 first_normal: Vec2 { x: c, y: -s },
@@ -284,7 +284,7 @@ impl Extrudable for AnnulusSectorBuilder {
                 indices: (1..vert_count).step_by(2).collect(),
             },
             PerimeterSegment::Flat {
-                indices: vec![vert_count - 2, vert_count - 1],
+                indices: vec![vert_count - 1, vert_count - 2],
             },
         ]
     }
