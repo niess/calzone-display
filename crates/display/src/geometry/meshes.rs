@@ -67,7 +67,7 @@ impl IntoMesh for SphereInfo {
                 .unwrap_or_else(|err| panic!("{}", err))
                 .with_inverted_winding()
                 .unwrap_or_else(|err| panic!("{}", err));
-            let VertexAttributeValues::Float32x3(ref mut normals) =
+            let VertexAttributeValues::Float32x3(normals) =
                 inner.attribute_mut(Mesh::ATTRIBUTE_NORMAL).unwrap() else { unreachable!() };
             for n in normals.iter_mut() {
                 *n = [-n[0], -n[1], -n[2]];

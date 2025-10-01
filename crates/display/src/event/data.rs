@@ -33,7 +33,7 @@ impl Target for Track {
             max = max.max(*vertex.position.as_vec3());
         }
         let half_width = 0.5 * (max - min);
-        let [mut dx, mut dy, _] = half_width.as_ref();
+        let &[mut dx, mut dy, _] = half_width.as_ref();
         if dx.abs() < Drone::NEAR {
             dx = Drone::NEAR.copysign(dx);
         }

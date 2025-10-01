@@ -44,7 +44,7 @@ fn setup_panel(
     ];
     let values = values.map(
         |(property, value)| commands.spawn((
-            UiText::new_input(&value, (7.5 * UiText::font_width()).round()),
+            UiText::new_bundle(&value),
             property,
         )).id()
     );
@@ -94,7 +94,7 @@ fn update_text(
                     if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
                         && let Some(value) = fps.smoothed()
                     {
-                        *writer.text(entity, 1) = property.format(value);
+                        *writer.text(entity, 0) = property.format(value);
                     }
                 },
             }
