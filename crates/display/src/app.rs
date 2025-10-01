@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 use bevy::log::{Level, LogPlugin};
+use bevy::render::{
+    RenderPlugin, render_resource::WgpuLimits, settings::{RenderCreation, WgpuSettings}
+};
 use bevy::window::{ExitCondition::DontExit, PrimaryWindow};
 use bevy::winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin};
 use bevy_rapier3d::prelude::*;
@@ -56,11 +59,27 @@ pub fn run() -> u8 {
         }
     };
 
+    let render = {
+        let mut limits = WgpuLimits::default();
+        let maxify = |x: &mut u32, m: u32| if *x < m { *x = m };
+        maxify(&mut limits.max_sampled_textures_per_shader_stage, 16384);
+        maxify(&mut limits.max_storage_buffers_per_shader_stage, 16);
+        maxify(&mut limits.max_push_constant_size, 128);
+        RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                constrained_limits: Some(limits),
+                ..default()
+            }),
+            ..default()
+        }
+    };
+
     let mut app = App::new();
     let rc = app
         .add_plugins((
             DefaultPlugins.build()
                 .set(log)
+                .set(render)
                 .set(window)
                 .set(winit),
             RapierPhysicsPlugin::<NoUserData>::default(),
