@@ -12,6 +12,7 @@ bevy = { version = "0.16", default-features = false, features = [
     "bevy_asset",
     "bevy_pbr",
     "bevy_core_pipeline",
+    "bevy_log",
     "bevy_render",
     "bevy_scene",
     "bevy_state",
@@ -24,7 +25,6 @@ bevy = { version = "0.16", default-features = false, features = [
     "tonemapping_luts",
     "x11",
 ]}
-bevy_atmosphere = { version = "0.13", default-features = false, features = ["dithering", "procedural", "nishita"] }
 bevy_polyline = "0.12"
 bevy_rapier3d = "0.31"
 bevy_simple_text_input = "0.11"

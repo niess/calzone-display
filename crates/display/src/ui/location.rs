@@ -7,13 +7,32 @@ use super::{UiRoot, UiText, UiWindow};
 
 pub fn build(app: &mut App) {
     app
-        .add_systems(OnEnter(AppState::Display), setup_panel)
+        .init_state::<LocationState>()
+        .add_systems(OnEnter(LocationState::Enabled),
+            setup_panel.run_if(in_state(AppState::Display))
+        )
+        .add_systems(OnExit(LocationState::Enabled),
+            remove_panel.run_if(in_state(AppState::Display))
+        )
+        .add_systems(OnExit(AppState::Display),
+            disable_panel
+        )
         .add_systems(Update,
             on_submit
-                .run_if(in_state(AppState::Display))
+                .run_if(in_state(LocationState::Enabled))
                 .after(UiText::on_mouse_button)
         );
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+pub enum LocationState {
+    #[default]
+    Disabled,
+    Enabled,
+}
+
+#[derive(Component)]
+struct LocationPanel;
 
 #[derive(Component)]
 enum Property {
@@ -82,7 +101,20 @@ fn setup_panel(
 
     let mut panel = UiWindow::new("Location", super::WindowLocation::BottomRight, &mut commands);
     panel.add_child(content);
-    panel.insert(UiRoot);
+    panel.insert((UiRoot, LocationPanel));
+}
+
+fn remove_panel(
+    panel: Query<Entity, With<LocationPanel>>,
+    mut commands: Commands,
+) {
+    if let Ok(panel) = panel.single() {
+        commands.entity(panel).despawn();
+    }
+}
+
+fn disable_panel (mut next_state: ResMut<NextState<LocationState>>) {
+    next_state.set(LocationState::Disabled);
 }
 
 fn on_submit(

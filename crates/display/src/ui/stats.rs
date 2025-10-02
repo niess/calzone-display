@@ -4,7 +4,7 @@ use bevy::diagnostic::{
 };
 use core::time::Duration;
 use crate::app::AppState;
-use super::{UiRoot, UiText, UiWindow};
+use super::{TextInputSet, TextInputState, UiRoot, UiText, UiWindow};
 
 
 pub fn build(app: &mut App) {
@@ -13,6 +13,7 @@ pub fn build(app: &mut App) {
             FrameTimeDiagnosticsPlugin::default(),
             SystemInformationDiagnosticsPlugin
         ))
+        .init_state::<StatsState>()
         .add_systems(Startup, initialise)
         .add_systems(OnEnter(AppState::Display),
             setup_panel
@@ -20,12 +21,11 @@ pub fn build(app: &mut App) {
         )
         .add_systems(Update, (
             update_text
-                .run_if(in_state(AppState::Display))
                 .run_if(in_state(StatsState::Enabled)),
             toggle_stats
-                .run_if(in_state(AppState::Display)),
-        ))
-        .init_state::<StatsState>();
+                .after(TextInputSet)
+                .run_if(in_state(TextInputState::Inactive)),
+        ).run_if(in_state(AppState::Display)));
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]

@@ -12,7 +12,6 @@ use super::drone::DronePlugin;
 use super::event::EventPlugin;
 use super::geometry::GeometryPlugin;
 use super::lighting::LightingPlugin;
-use super::sky::SkyPlugin;
 use super::ui::UiPlugin;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
@@ -61,10 +60,13 @@ pub fn run() -> u8 {
 
     let render = {
         let mut limits = WgpuLimits::default();
-        let maxify = |x: &mut u32, m: u32| if *x < m { *x = m };
+        fn maxify<T: Copy + PartialOrd>(x: &mut T, m: T) {
+            if *x < m { *x = m }
+        }
         maxify(&mut limits.max_sampled_textures_per_shader_stage, 16384);
         maxify(&mut limits.max_storage_buffers_per_shader_stage, 16);
         maxify(&mut limits.max_push_constant_size, 128);
+        maxify(&mut limits.max_buffer_size, 4 * 1024_u64.pow(3));
         RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
                 constrained_limits: Some(limits),
@@ -88,11 +90,9 @@ pub fn run() -> u8 {
             EventPlugin,
             GeometryPlugin,
             LightingPlugin,
-            SkyPlugin,
             UiPlugin,
         ))
         .init_state::<AppState>()
-        .add_systems(Startup, setup_physics)
         .add_systems(OnExit(AppState::Display), clear_all)
         .add_systems(Update, (
             iddle_system.run_if(in_state(AppState::Iddle)),
@@ -104,12 +104,6 @@ pub fn run() -> u8 {
         AppExit::Success => 0,
         AppExit::Error(rc) => rc.get(),
     }
-}
-
-fn setup_physics(mut config: Query<&mut RapierConfiguration>) -> Result<()> {
-    config.single_mut()?
-        .gravity = 9.81 * Vect::NEG_Z;
-    Ok(())
 }
 
 fn iddle_system(

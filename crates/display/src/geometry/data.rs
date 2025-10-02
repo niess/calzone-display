@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::encase::matrix::FromMatrixParts;
 use super::jmol::JMOL;
+use super::COORDINATES_MAPPING as MAPPING;
 use super::units::Meters;
 
 pub use data::geometry::{
@@ -14,13 +15,13 @@ pub(crate) trait ToTransform {
 
 impl ToTransform for TransformInfo {
     fn to_transform(&self) -> Transform {
-        let rotation: [[f32; 3]; 3] = std::array::from_fn(|i| 
-            std::array::from_fn(|j| self.rotation[i][j] as f32)
+        let rotation: [[f32; 3]; 3] = std::array::from_fn(|i|
+            std::array::from_fn(|j| self.rotation[MAPPING[i]][MAPPING[j]] as f32)
         );
         let rotation = Mat3::from_parts(rotation);
         let rotation = Quat::from_mat3(&rotation);
         let translation: [f32; 3] = std::array::from_fn(|i|
-            self.translation[i].meters()
+            self.translation[MAPPING[i]].meters()
         );
         let translation: Vec3 = translation.into();
         Transform::from_rotation(rotation)

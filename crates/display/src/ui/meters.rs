@@ -74,12 +74,12 @@ impl Meters {
 
     pub fn update_transform(&self, transform: &Transform, commands: &mut Commands) {
         self.x.update(transform.translation.x, commands);
-        self.y.update(transform.translation.y, commands);
-        self.z.update(transform.translation.z, commands);
+        self.y.update(transform.translation.z, commands);
+        self.z.update(transform.translation.y, commands);
 
         let r = transform.forward();
-        let phi = r.y.atan2(r.x).to_degrees();
-        let theta = r.z.acos().to_degrees();
+        let phi = r.z.atan2(r.x).to_degrees();
+        let theta = r.y.acos().to_degrees();
         self.azimuth.update(90.0 - phi, commands);
         self.elevation.update(90.0 - theta, commands);
     }

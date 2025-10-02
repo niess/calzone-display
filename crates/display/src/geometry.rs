@@ -20,6 +20,8 @@ mod units;
 pub use data::GeometryInfo;
 
 
+pub const COORDINATES_MAPPING: [usize; 3] = [0, 2, 1];
+
 pub(crate) struct GeometryPlugin;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -191,8 +193,8 @@ impl Volume {
     pub fn target(&self) -> Transform {
         let [dx, dy, dz] = self.aabb.half_extents.into();
         let origin = Vec3::from(self.aabb.center);
-        let start_position = origin + Vec3::new(-1.5 * dx, -1.5 * dy, 3.0 * dz);
+        let start_position = origin + Vec3::new(-1.5 * dx, 3.0 * dy, -1.5 * dz);
         Transform::from_translation(start_position)
-            .looking_at(origin, Vec3::Z)
+            .looking_at(origin, Vec3::Y)
     }
 }

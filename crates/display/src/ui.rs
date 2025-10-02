@@ -15,6 +15,7 @@ mod scroll;
 mod stats;
 
 pub use event::UiEvent;
+pub use location::LocationState;
 pub use meters::Meters;
 pub use nord::NORD;
 pub use scroll::Scroll;

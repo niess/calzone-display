@@ -1,11 +1,12 @@
 use bevy::prelude::*;
+use bevy::core_pipeline::{bloom::Bloom, tonemapping::Tonemapping};
 use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::render::camera::Exposure;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy_rapier3d::prelude::*;
 use crate::app::{AppState, Removable};
 use crate::event::{EventBundle, EventCamera};
 use crate::geometry::{GeometrySet, RootVolume, Volume};
-use crate::sky::{SkyBundle, SkyCamera};
 use crate::ui::{Meters, TextInputSet, TextInputState, UiRoot};
 
 
@@ -54,20 +55,29 @@ impl Drone {
             .insert(root.target())
             .insert(Visibility::default())
             .insert(RigidBody::KinematicVelocityBased)
-            .insert(AdditionalMassProperties::Mass(1.0))
             .insert(Velocity::default())
             .insert(Removable)
             .with_children(|parent| {
                 parent.spawn((
                     DroneCamera,
                     Camera3d::default(),
+                    Camera {
+                        hdr: true,
+                        ..default()
+                    },
                     Projection::Perspective(PerspectiveProjection {
                         fov: Drone::FOV_MAX,
                         near: Drone::NEAR,
                         ..default()
                     }),
+                    Bloom::NATURAL,
+                    Exposure::SUNLIGHT,
+                    Tonemapping::AgX,
+                    AmbientLight {
+                        brightness: 0.0, // disable default.
+                        ..default()
+                    },
                 ));
-                parent.spawn(SkyBundle::new(Drone::FOV_MAX));
                 parent.spawn(EventBundle::new(Drone::FOV_MAX));
             });
         Ok(())
@@ -141,7 +151,7 @@ fn on_mouse_motion(
     } else {
         None
     };
-    transform.rotate_z(yaw);
+    transform.rotate_y(yaw);
     transform.rotate_local_x(pitch);
     if let Some(r0i) = r0i {
         velocity.linvel = (transform.rotation * r0i) * velocity.linvel;
@@ -152,13 +162,10 @@ fn on_mouse_motion(
 fn on_mouse_wheel(
     mut wheels: EventReader<MouseWheel>,
     mut camera: Query<&mut Projection, (
-        With<DroneCamera>, Without<EventCamera>, Without<SkyCamera>
+        With<DroneCamera>, Without<EventCamera>,
     )>,
     event_camera: Query<&mut Projection, (
-        With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
-    )>,
-    sky_camera: Query<&mut Projection, (
-        With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
+        With<EventCamera>, Without<DroneCamera>,
     )>,
     drone: Query<&Drone>,
     uis: Query<(&ComputedNode, &GlobalTransform), With<UiRoot>>,
@@ -188,7 +195,7 @@ fn on_mouse_wheel(
         perspective.fov = (perspective.fov * (-0.05 * scroll).exp())
             .clamp(Drone::FOV_MIN, Drone::FOV_MAX);
         update_zoom(
-            drone.single().unwrap(), perspective, event_camera, sky_camera, &mut commands
+            drone.single().unwrap(), perspective, event_camera, &mut commands
         )?;
     }
     Ok(())
@@ -198,10 +205,7 @@ fn update_zoom(
     drone: &Drone,
     perspective: &PerspectiveProjection,
     mut event_camera: Query<&mut Projection, (
-        With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
-    )>,
-    mut sky_camera: Query<&mut Projection, (
-        With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
+        With<EventCamera>, Without<DroneCamera>,
     )>,
     commands: &mut Commands,
 ) -> Result<()> {
@@ -209,9 +213,6 @@ fn update_zoom(
 
     if let Projection::Perspective(event_camera) = event_camera.single_mut()?.into_inner() {
         event_camera.fov = perspective.fov;
-    }
-    if let Projection::Perspective(sky_camera) = sky_camera.single_mut()?.into_inner() {
-        sky_camera.fov = perspective.fov;
     }
     Ok(())
 }
@@ -257,21 +258,19 @@ fn on_keyboard(
 
 fn on_target(
     mut events: EventReader<TargetEvent>,
-    mut drone: Query<(&Drone, &mut Transform, &mut Velocity)>,
+    mut drone: Query<(Entity, &Drone, &mut Transform, &mut Velocity)>,
     mut commands: Commands,
     mut drone_camera: Query<&mut Projection, (
-        With<DroneCamera>, Without<EventCamera>, Without<SkyCamera>
+        With<DroneCamera>, Without<EventCamera>,
     )>,
     event_camera: Query<&mut Projection, (
-        With<EventCamera>, Without<DroneCamera>, Without<SkyCamera>
-    )>,
-    sky_camera: Query<&mut Projection, (
-        With<SkyCamera>, Without<DroneCamera>, Without<EventCamera>
+        With<EventCamera>, Without<DroneCamera>,
     )>,
 ) -> Result<()> {
     let mut reset_zoom = false;
     for event in events.read() {
-        let (_, mut transform, mut velocity) = drone.single_mut()?;
+        let (entity, _, mut transform, mut velocity) = drone.single_mut()?;
+        commands.entity(entity).insert(RigidBodyDisabled); // Disable rapier phys. before warping.
         *transform = event.0;
         let magnitude = velocity.linvel.length();
         if magnitude != 0.0 {
@@ -282,9 +281,9 @@ fn on_target(
 
     if reset_zoom {
         if let Projection::Perspective(perspective) = drone_camera.single_mut()?.into_inner() {
-            let (drone, ..) = drone.single_mut()?;
+            let (_, drone, ..) = drone.single_mut()?;
             perspective.fov = Drone::FOV_MAX;
-            update_zoom(drone, perspective, event_camera, sky_camera, &mut commands)?;
+            update_zoom(drone, perspective, event_camera, &mut commands)?;
         }
     }
     Ok(())
@@ -293,9 +292,13 @@ fn on_target(
 fn on_transform(
     mut commands: Commands,
     query: Query<(&Drone, &Transform), Changed<Transform>>,
+    disabled: Query<Entity, With<RigidBodyDisabled>>,
 ) {
     if query.is_empty() {
         return
+    }
+    if let Ok(entity) = disabled.single() { // Restore Rapier physics.
+        commands.entity(entity).remove::<RigidBodyDisabled>();
     }
     let (drone, transform) = query.single().unwrap();
     drone.meters.update_transform(transform, &mut commands);

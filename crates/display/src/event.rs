@@ -1,5 +1,7 @@
 use bevy::prelude::*;
+use bevy::render::camera::CameraOutputMode;
 use bevy::render::view::RenderLayers;
+use bevy::render::render_resource::BlendState;
 use bevy::window::PrimaryWindow;
 use bevy_polyline::prelude::*;
 use crate::app::{AppState, Removable};
@@ -223,6 +225,12 @@ impl EventBundle {
             Camera3d::default(),
             Camera {
                 order: 1,
+                // HDR compat with multiple cameras (see bevy issue #18901).
+                clear_color: ClearColorConfig::None,
+                output_mode: CameraOutputMode::Write {
+                    blend_state: Some(BlendState::ALPHA_BLENDING),
+                    clear_color: ClearColorConfig::None,
+                },
                 ..default()
             },
             Projection::Perspective(PerspectiveProjection {
