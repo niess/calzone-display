@@ -77,7 +77,7 @@ fn update_events(mut events: ResMut<Events>) {
     }
 }
 
-const EVENT_LAYER: usize = 2;
+const EVENT_LAYER: usize = 1;
 
 fn draw_event(
     events: Res<Events>,
@@ -226,7 +226,7 @@ impl EventBundle {
             Camera {
                 order: 1,
                 // HDR compat with multiple cameras (see bevy issue #18901).
-                clear_color: ClearColorConfig::None,
+                clear_color: ClearColorConfig::Custom(Color::NONE),
                 output_mode: CameraOutputMode::Write {
                     blend_state: Some(BlendState::ALPHA_BLENDING),
                     clear_color: ClearColorConfig::None,
