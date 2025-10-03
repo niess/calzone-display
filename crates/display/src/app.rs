@@ -112,6 +112,7 @@ fn iddle_system(
     mut next_state: ResMut<NextState<AppState>>,
     mut exit: EventWriter<AppExit>,
     event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
+    time: Res<Time>,
 ) {
     if GeometryPlugin::is_data() {
         if window.is_empty() {
@@ -126,7 +127,8 @@ fn iddle_system(
             let _ = event_loop_proxy.send_event(WakeUp); // To trigger a winit redraw.
         }
         next_state.set(AppState::Display);
-    } else {
+    } else if time.elapsed() > std::time::Duration::from_millis(100) {
+        // Exiting too soon after startup might crash the gfx drivers (linux/nvidia).
         if EXIT.load(Ordering::Relaxed) {
             exit.write(AppExit::Success);
         }

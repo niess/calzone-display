@@ -29,31 +29,31 @@ impl Target for Track {
         let mut min = Vec3::MAX;
         let mut max = Vec3::MIN;
         for vertex in self.vertices.iter() {
-            min = min.min(*vertex.position.as_vec3());
-            max = max.max(*vertex.position.as_vec3());
+            min = min.min(vertex.position.to_vec3());
+            max = max.max(vertex.position.to_vec3());
         }
         let half_width = 0.5 * (max - min);
-        let &[mut dx, mut dy, _] = half_width.as_ref();
+        let &[mut dx, _, mut dz] = half_width.as_ref();
         if dx.abs() < Drone::NEAR {
             dx = Drone::NEAR.copysign(dx);
         }
-        if dy.abs() < Drone::NEAR {
-            dy = Drone::NEAR.copysign(dy);
+        if dz.abs() < Drone::NEAR {
+            dz = Drone::NEAR.copysign(dz);
         }
         let origin = 0.5 * (min + max);
-        let start_position = origin + Vec3::new(-1.5 * dx, -1.5 * dy, 0.0);
+        let start_position = origin + Vec3::new(-1.5 * dx, 0.0, -1.5 * dz);
         Transform::from_translation(start_position)
-            .looking_at(origin, Vec3::Z)
+            .looking_at(origin, Vec3::Y)
     }
 }
 
-pub(crate) trait AsVec3 {
-    fn as_vec3(&self) -> &Vec3;
+pub(crate) trait ToVec3 {
+    fn to_vec3(&self) -> Vec3;
 }
 
-impl AsVec3 for data::event::Vec3 {
+impl ToVec3 for data::event::Vec3 {
     #[inline]
-    fn as_vec3(&self) -> &Vec3 {
-        unsafe { std::mem::transmute(self) }
+    fn to_vec3(&self) -> Vec3 {
+        Vec3 { x: self.x, y: self.z, z: self.y }  // Permute y and z.
     }
 }

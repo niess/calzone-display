@@ -19,7 +19,7 @@ pub(crate) use data::Events as EventsData;
 pub(crate) use data::Event as EventData;
 pub(crate) use data::Target;
 pub(crate) use data::Track as TrackData;
-use data::AsVec3;
+use data::ToVec3;
 
 
 pub(crate) struct EventPlugin;
@@ -129,7 +129,7 @@ fn draw_event(
                         let vertex_material = materials.add(vertex_material);
                         let vertices: Vec<Vec3> = track.vertices
                             .iter()
-                            .map(|v| *v.position.as_vec3())
+                            .map(|v| v.position.to_vec3())
                             .collect();
                         let polyline = Polyline { vertices };
                         let material = PolylineMaterial {
@@ -155,7 +155,7 @@ fn draw_event(
                                         VertexSize(vertex_size),
                                         MeshMaterial3d(vertex_material.clone()),
                                         Mesh3d(vertex_mesh.clone()),
-                                        Transform::from_translation(*vertex.position.as_vec3()),
+                                        Transform::from_translation(vertex.position.to_vec3()),
                                         RenderLayers::layer(EVENT_LAYER),
                                     ));
                                 }
