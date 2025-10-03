@@ -20,8 +20,6 @@ mod units;
 pub use data::GeometryInfo;
 
 
-pub const COORDINATES_MAPPING: [usize; 3] = [0, 2, 1];
-
 pub(crate) struct GeometryPlugin;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

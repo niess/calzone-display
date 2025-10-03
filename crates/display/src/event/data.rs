@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::world_to_view;
 use crate::drone::Drone;
 use std::sync::Mutex;
 
@@ -29,8 +30,8 @@ impl Target for Track {
         let mut min = Vec3::MAX;
         let mut max = Vec3::MIN;
         for vertex in self.vertices.iter() {
-            min = min.min(vertex.position.to_vec3());
-            max = max.max(vertex.position.to_vec3());
+            min = min.min(vertex.position.to_view());
+            max = max.max(vertex.position.to_view());
         }
         let half_width = 0.5 * (max - min);
         let &[mut dx, _, mut dz] = half_width.as_ref();
@@ -47,13 +48,14 @@ impl Target for Track {
     }
 }
 
-pub(crate) trait ToVec3 {
-    fn to_vec3(&self) -> Vec3;
+pub(crate) trait ToView {
+    fn to_view(&self) -> Vec3;
 }
 
-impl ToVec3 for data::event::Vec3 {
+impl ToView for data::event::Vec3 {
     #[inline]
-    fn to_vec3(&self) -> Vec3 {
-        Vec3 { x: self.x, y: self.z, z: self.y }  // Permute y and z.
+    fn to_view(&self) -> Vec3 {
+        let p = Vec3::new(self.x, self.y, self.z);
+        world_to_view().transform_point3(p)
     }
 }

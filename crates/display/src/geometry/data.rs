@@ -1,7 +1,8 @@
 use bevy::prelude::*;
+use bevy::math::Affine3A;
 use bevy::render::render_resource::encase::matrix::FromMatrixParts;
 use super::jmol::JMOL;
-use super::COORDINATES_MAPPING as MAPPING;
+use crate::{view_to_world, world_to_view};
 use super::units::Meters;
 
 pub use data::geometry::{
@@ -16,16 +17,17 @@ pub(crate) trait ToTransform {
 impl ToTransform for TransformInfo {
     fn to_transform(&self) -> Transform {
         let rotation: [[f32; 3]; 3] = std::array::from_fn(|i|
-            std::array::from_fn(|j| self.rotation[MAPPING[i]][MAPPING[j]] as f32)
+            std::array::from_fn(|j| self.rotation[i][j] as f32)
         );
         let rotation = Mat3::from_parts(rotation);
         let rotation = Quat::from_mat3(&rotation);
         let translation: [f32; 3] = std::array::from_fn(|i|
-            self.translation[MAPPING[i]].meters()
+            self.translation[i].meters()
         );
-        let translation: Vec3 = translation.into();
-        Transform::from_rotation(rotation)
-            .with_translation(translation)
+        let transform = Affine3A::from_rotation_translation(rotation, translation.into());
+        let transform = *world_to_view() * transform * *view_to_world();
+        let (scale, rotation, translation) = transform.to_scale_rotation_translation();
+        Transform { scale, rotation, translation }
     }
 }
 

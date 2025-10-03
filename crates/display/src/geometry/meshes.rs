@@ -3,7 +3,7 @@ use bevy::render::mesh::{
     Extrudable, Indices, PerimeterSegment, PrimitiveTopology, VertexAttributeValues,
 };
 use bevy::render::render_asset::RenderAssetUsages;
-use super::COORDINATES_MAPPING as MAPPING;
+use crate::view_transform;
 use super::data::{BoxInfo, MeshInfo, OrbInfo, SolidInfo, SphereInfo, TubsInfo};
 use super::units::Meters;
 
@@ -25,16 +25,17 @@ impl IntoMesh for SolidInfo {
 
 impl IntoMesh for BoxInfo  {
     fn into_mesh(self) -> Mesh {
-        let size: Vec3 = std::array::from_fn(|i| self.size[MAPPING[i]].meters()).into();
+        let size: Vec3 = std::array::from_fn(|i| self.size[i].meters()).into();
         let mut mesh: Mesh = Cuboid::from_size(size).into();
         apply_any_displacement(&mut mesh, &self.displacement);
+        mesh.transform_by(view_transform());
         mesh
     }
 }
 
 fn apply_any_displacement(mesh: &mut Mesh, displacement: &[f64; 3]) {
     if displacement.iter().map(|x| x.abs()).sum::<f64>() > 0.0 {
-        let displacement: [f32; 3] = std::array::from_fn(|i| displacement[MAPPING[i]].meters());
+        let displacement: [f32; 3] = std::array::from_fn(|i| displacement[i].meters());
         mesh.translate_by(displacement.into());
     }
 }
@@ -46,16 +47,17 @@ impl IntoMesh for OrbInfo {
             .ico(7)
             .unwrap_or_else(|err| panic!("{}", err));
         apply_any_displacement(&mut mesh, &self.displacement);
+        mesh.transform_by(view_transform());
         mesh
     }
 }
 
 impl IntoMesh for SphereInfo {
     fn into_mesh(self) -> Mesh {
-        if
+        let mut mesh = if
             (self.delta_phi < std::f64::consts::TAU - f32::EPSILON as f64) ||
             (self.delta_theta < std::f64::consts::PI - f32::EPSILON as f64) {
-            UvSphereBuilder::new(self) // XXX invert y and z?
+            UvSphereBuilder::new(self)
                 .build()
         } else {
             let mut mesh = Sphere::new(self.outer_radius.meters())
@@ -76,7 +78,9 @@ impl IntoMesh for SphereInfo {
             mesh.merge(&inner)
                 .unwrap_or_else(|err| panic!("{}", err));
             mesh
-        }
+        };
+        mesh.transform_by(view_transform());
+        mesh
     }
 }
 
@@ -88,11 +92,11 @@ impl IntoMesh for MeshInfo {
         let mut indices = Vec::with_capacity(n);
 
         for (i, facet) in self.0.chunks_exact(9).enumerate() {
-            const WINDING: [usize; 3] = [ 0, 2, 1 ];
             let v: [[f32; 3]; 3] = std::array::from_fn(|j| {
-                let j = WINDING[j];
                 let v = &facet[(3 * j)..(3 * (j + 1))];
-                std::array::from_fn(|k| v[MAPPING[k]].meters())
+                let r = std::array::from_fn(|k| v[k].meters());
+                let r = view_transform() * Vec3::from(r);
+                r.into()
             });
 
             let normal: [f32; 3] = MeshData::compute_normal(&v).into();
@@ -113,18 +117,17 @@ impl IntoMesh for TubsInfo  {
         const RESOLUTION: u32 = 256;
         let mut mesh = if self.inner_radius == 0.0 {
             if self.delta_phi >= std::f64::consts::TAU {
-                Cylinder::new(
+                let mut mesh = Cylinder::new(
                     self.outer_radius.meters(),
                     self.length.meters(),
                 )
                     .mesh()
                     .resolution(RESOLUTION)
-                    .build()
-                /* XXX needed?
-                let quat = Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+                    .build();
+                apply_any_displacement(&mut mesh, &self.displacement);
+                let quat = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
                 mesh.rotate_by(quat);
                 mesh
-                */
             } else {
                 let sector = CircularSector::new(
                     self.outer_radius.meters(),
@@ -133,17 +136,17 @@ impl IntoMesh for TubsInfo  {
                 let mut mesh = Extrusion::new(sector, self.length.meters())
                     .mesh()
                     .build();
-                let angle = (self.start_phi + 0.5 * self.delta_phi) as f32;
+                let angle = (
+                    self.start_phi + 0.5 * self.delta_phi - std::f64::consts::FRAC_PI_2
+                ) as f32;
                 if angle.abs() > f32::EPSILON {
                     let quat = Quat::from_rotation_z(angle);
                     mesh.rotate_by(quat);
                 }
-                let quat = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
-                mesh.rotate_by(quat);
                 mesh
             }
         } else {
-            let mut mesh = if self.delta_phi >= std::f64::consts::TAU {
+            if self.delta_phi >= std::f64::consts::TAU {
                 let annulus = Annulus::new(
                     self.inner_radius.meters(),
                     self.outer_radius.meters(),
@@ -161,18 +164,17 @@ impl IntoMesh for TubsInfo  {
                 let mut mesh = Extrusion::new(sector, self.length.meters())
                     .mesh()
                     .build();
-                let angle = (self.start_phi + 0.5 * self.delta_phi) as f32;
+                let angle = (
+                    self.start_phi + 0.5 * self.delta_phi - std::f64::consts::FRAC_PI_2
+                ) as f32;
                 if angle.abs() > f32::EPSILON {
                     let quat = Quat::from_rotation_z(angle);
                     mesh.rotate_by(quat);
                 }
                 mesh
-            };
-            let quat = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
-            mesh.rotate_by(quat);
-            mesh
+            }
         };
-        apply_any_displacement(&mut mesh, &self.displacement);
+        mesh.transform_by(view_transform());
         mesh
     }
 }
@@ -261,7 +263,7 @@ impl MeshBuilder for AnnulusSectorBuilder {
 
         // Each iteration places a pair of vertices at a fixed angle from the center of the
         // annulus.
-        let start_angle = -half_angle;
+        let start_angle = -half_angle + std::f32::consts::FRAC_PI_2;
         let step = 2.0 * half_angle / (resolution - 1) as f32;
         for i in 0..resolution {
             let theta = start_angle + i as f32 * step;
@@ -354,8 +356,8 @@ impl UvSphereBuilder {
     fn build_cap(&self, theta_lim: f32, kind: CapKind) -> Mesh {
         let phi_step = self.sphere.delta_phi as f32 / self.sectors as f32;
         let sgn = match kind {
-            CapKind::Lower => -1.0,
-            CapKind::Upper => 1.0,
+            CapKind::Lower => 1.0,
+            CapKind::Upper => -1.0,
         };
 
         let raw = if self.sphere.inner_radius <= f32::EPSILON as f64 {
@@ -389,13 +391,13 @@ impl UvSphereBuilder {
                 match kind {
                     CapKind::Lower => {
                         indices.push(0);
-                        indices.push(j + 1);
                         indices.push(j + 2);
+                        indices.push(j + 1);
                     },
                     CapKind::Upper => {
                         indices.push(0);
-                        indices.push(j + 2);
                         indices.push(j + 1);
+                        indices.push(j + 2);
                     },
                 }
             }
@@ -462,8 +464,8 @@ impl UvSphereBuilder {
         let theta_step = self.sphere.delta_theta as f32 / self.stacks as f32;
         let (sp, cp) = phi_lim.sin_cos();
         let normal = match kind {
-            SideKind::Left => [-cp, sp, 0.0],
-            SideKind::Right =>[cp, -sp, 0.0],
+            SideKind::Left => [sp, -cp, 0.0],
+            SideKind::Right =>[-sp, cp, 0.0],
         };
 
         let raw = if self.sphere.inner_radius <= f32::EPSILON as f64 {
@@ -494,13 +496,13 @@ impl UvSphereBuilder {
                 match kind {
                     SideKind::Left => {
                         indices.push(0);
-                        indices.push(i + 1);
                         indices.push(i + 2);
+                        indices.push(i + 1);
                     },
                     SideKind::Right => {
                         indices.push(0);
-                        indices.push(i + 2);
                         indices.push(i + 1);
+                        indices.push(i + 2);
                     },
                 }
             }
@@ -659,18 +661,11 @@ impl MeshBuilder for UvSphereBuilder {
             }
         }
         if self.sphere.delta_phi < std::f64::consts::TAU - f32::EPSILON as f64 {
-            let (phi_min, phi_max) = {
-                let p0 = self.sphere.start_phi as f32;
-                let p1 = (self.sphere.start_phi + self.sphere.delta_phi) as f32;
-                if p0 <= p1 {
-                    (p0, p1)
-                } else {
-                    (p1, p0)
-                }
-            };
-            let left_side = self.build_side(phi_min, SideKind::Left);
+            let phi0 = self.sphere.start_phi as f32;
+            let phi1 = (self.sphere.start_phi + self.sphere.delta_phi) as f32;
+            let left_side = self.build_side(phi0, SideKind::Left);
             mesh.merge(&left_side).unwrap();
-            let right_side = self.build_side(phi_max, SideKind::Right);
+            let right_side = self.build_side(phi1, SideKind::Right);
             mesh.merge(&right_side).unwrap();
         }
         mesh

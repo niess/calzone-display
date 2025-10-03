@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
+use crate::view_to_world;
 use crate::ui::UiRoot;
 
 
@@ -73,13 +74,14 @@ impl Meters {
     }
 
     pub fn update_transform(&self, transform: &Transform, commands: &mut Commands) {
-        self.x.update(transform.translation.x, commands);
-        self.y.update(transform.translation.z, commands);
-        self.z.update(transform.translation.y, commands);
+        let r = view_to_world().transform_point3(transform.translation);
+        self.x.update(r.x, commands);
+        self.y.update(r.y, commands);
+        self.z.update(r.z, commands);
 
-        let r = transform.forward();
-        let phi = r.z.atan2(r.x).to_degrees();
-        let theta = r.y.acos().to_degrees();
+        let u = view_to_world().transform_vector3(*transform.forward());
+        let phi = u.y.atan2(u.x).to_degrees();
+        let theta = u.z.acos().to_degrees();
         self.azimuth.update(90.0 - phi, commands);
         self.elevation.update(90.0 - theta, commands);
     }

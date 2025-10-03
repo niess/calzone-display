@@ -2,10 +2,11 @@ use bevy::prelude::*;
 use bevy::color::palettes::css::*;
 use bevy::pbr::Atmosphere;
 use chrono::{NaiveDate, TimeZone, Utc};
+use crate::world_to_view;
 use crate::app::{AppState, Removable};
 use crate::drone::{Drone, DroneCamera};
 use crate::ui::{LocationState, TextInputSet, TextInputState};
-use super::geometry::{GeometrySet, COORDINATES_MAPPING as MAPPING};
+use super::geometry::GeometrySet;
 
 
 pub struct LightingPlugin;
@@ -249,17 +250,15 @@ impl Sun {
         // Convert to spherical coordinates.
         let theta = sun_position.zenith_angle.to_radians() as f32;
         let phi = (90.0 - sun_position.azimuth).to_radians() as f32;
-        let direction = [
+        let direction = Vec3::new(
             theta.sin() * phi.cos(),
             theta.sin() * phi.sin(),
             theta.cos(),
-        ];
+        );
+        let direction = world_to_view().transform_vector3(direction);
 
-        Transform::from_xyz(
-            direction[MAPPING[0]],
-            direction[MAPPING[1]],
-            direction[MAPPING[2]],
-        ).looking_at(Vec3::ZERO, Vec3::Y)
+        Transform::from_translation(direction)
+            .looking_at(Vec3::ZERO, Vec3::Y)
     }
 }
 
