@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use bevy::ecs::system::EntityCommands;
 use bevy_simple_text_input::{TextInput, TextInputCursorPos, TextInputInactive,
-    TextInputPlugin, TextInputSettings, TextInputSubmitEvent, TextInputSystem, TextInputValue};
+    TextInputPlugin, TextInputSettings, TextInputSubmitEvent, TextInputSystem, TextInputTextColor,
+    TextInputTextFont, TextInputValue};
 use bevy::window::PrimaryWindow;
 use crate::app::{AppState, Removable};
 use crate::geometry::GeometrySet;
@@ -110,6 +111,8 @@ impl WindowLocation {
 }
 
 impl UiWindow {
+    const FONT_SIZE: f32 = 14.0;
+
     fn new<'a>(
         title: &str,
         location: WindowLocation,
@@ -118,7 +121,7 @@ impl UiWindow {
         let title = commands.spawn((
             Text(title.to_owned()),
             TextFont {
-                font_size: 18.0,
+                font_size: Self::FONT_SIZE,
                 ..default()
             },
             TextColor(NORD[6].into()),
@@ -172,7 +175,7 @@ impl UiWindow {
 struct UiText;
 
 impl UiText {
-    pub const FONT_HEIGHT: f32 = 18.0;
+    pub const FONT_HEIGHT: f32 = 12.0;
     pub const FONT_ASPECT_RATIO: f32 = 0.5;
 
     const NORMAL: Srgba = NORD[4];
@@ -213,11 +216,11 @@ impl UiText {
                 retain_on_submit: true,
                 ..default()
             },
-            TextFont {
+            TextInputTextFont(TextFont {
                 font_size: Self::FONT_HEIGHT,
                 ..default()
-            },
-            TextColor(Self::NORMAL.into()),
+            }),
+            TextInputTextColor(TextColor(Self::NORMAL.into())),
         )
     }
 
