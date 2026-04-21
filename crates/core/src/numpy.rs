@@ -76,12 +76,13 @@ pub fn initialise(py: Python) -> PyResult<()> {
     };
 
     let dtype_vertex: PyObject = {
-        let arg: [PyObject; 7] = [
+        let arg: [PyObject; 8] = [
             ("event", "u8").into_py(py),
             ("tid", "i4").into_py(py),
             ("energy", "f8").into_py(py),
             ("position", "f8", 3).into_py(py),
             ("direction", "f8", 3).into_py(py),
+            ("time", "f8").into_py(py),
             ("volume", "S16").into_py(py),
             ("process", "S16").into_py(py),
         ];

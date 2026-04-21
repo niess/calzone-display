@@ -134,6 +134,7 @@ pub struct CVertex {
     pub energy: f64,
     pub position: [f64; 3],
     pub direction: [f64; 3],
+    pub time: f64,
     pub volume: [u8; 16],
     pub process: [u8; 16],
 }
