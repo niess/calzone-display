@@ -15,7 +15,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics"
 ]
-version = "0.5.0"
+version = "0.5.1"
 requires-python = ">=3.7.0"
 dependencies = [
     "calzone >= 1.2.1",
